@@ -15,13 +15,12 @@ public partial class DocumentPreviewCanvas : UserControl
     private Rectangle? _drawPreview;
     private readonly Dictionary<string, Rectangle> _boxRectangles = new();
 
-    // For drag/resize
+    // For drag
     private bool _isDragging;
-    private bool _isResizing;
     private CaptureBox? _activeBox;
     private Point _dragStart;
     private NormalisedRect? _originalRect;
-    private string? _resizeHandle;
+    private Rectangle? _dragRect;
 
     private static readonly Brush[] BoxColors =
     [
@@ -133,6 +132,8 @@ public partial class DocumentPreviewCanvas : UserControl
         Canvas.SetTop(rect, box.Rect.Y * canvasHeight);
 
         rect.MouseLeftButtonDown += BoxRect_MouseDown;
+        rect.MouseLeftButtonUp += BoxRect_MouseUp;
+        rect.MouseMove += BoxRect_MouseMove;
         rect.MouseRightButtonDown += BoxRect_RightClick;
 
         return rect;
@@ -145,9 +146,56 @@ public partial class DocumentPreviewCanvas : UserControl
             ViewModel?.SelectBox(box);
             _isDragging = true;
             _activeBox = box;
+            _dragRect = rect;
             _dragStart = e.GetPosition(OverlayCanvas);
             _originalRect = box.Rect;
             rect.CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void BoxRect_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDragging || _activeBox == null || _originalRect == null) return;
+
+        var pos = e.GetPosition(OverlayCanvas);
+        var canvasWidth = PageImage.ActualWidth;
+        var canvasHeight = PageImage.ActualHeight;
+        if (canvasWidth <= 0 || canvasHeight <= 0) return;
+
+        var dx = (pos.X - _dragStart.X) / canvasWidth;
+        var dy = (pos.Y - _dragStart.Y) / canvasHeight;
+
+        var newRect = new NormalisedRect(
+            Math.Max(0, Math.Min(1 - _originalRect.Width, _originalRect.X + dx)),
+            Math.Max(0, Math.Min(1 - _originalRect.Height, _originalRect.Y + dy)),
+            _originalRect.Width,
+            _originalRect.Height
+        );
+
+        ViewModel?.UpdateBoxRect(_activeBox, newRect);
+        RefreshOverlays();
+
+        // Update info text
+        var normX = pos.X / canvasWidth;
+        var normY = pos.Y / canvasHeight;
+        InfoText.Text = $"Position: ({normX:F3}, {normY:F3})";
+
+        e.Handled = true;
+    }
+
+    private void BoxRect_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDragging)
+        {
+            _isDragging = false;
+            _activeBox = null;
+            _originalRect = null;
+
+            if (_dragRect?.IsMouseCaptured == true)
+                _dragRect.ReleaseMouseCapture();
+            _dragRect = null;
+
             e.Handled = true;
         }
     }
@@ -225,25 +273,6 @@ public partial class DocumentPreviewCanvas : UserControl
             _drawPreview.Width = w;
             _drawPreview.Height = h;
         }
-        else if (_isDragging && _activeBox != null && _originalRect != null)
-        {
-            var canvasWidth = PageImage.ActualWidth;
-            var canvasHeight = PageImage.ActualHeight;
-            if (canvasWidth <= 0 || canvasHeight <= 0) return;
-
-            var dx = (pos.X - _dragStart.X) / canvasWidth;
-            var dy = (pos.Y - _dragStart.Y) / canvasHeight;
-
-            var newRect = new NormalisedRect(
-                Math.Max(0, Math.Min(1 - _originalRect.Width, _originalRect.X + dx)),
-                Math.Max(0, Math.Min(1 - _originalRect.Height, _originalRect.Y + dy)),
-                _originalRect.Width,
-                _originalRect.Height
-            );
-
-            ViewModel?.UpdateBoxRect(_activeBox, newRect);
-            RefreshOverlays();
-        }
 
         // Update info text
         var canvasW = PageImage.ActualWidth;
@@ -281,18 +310,16 @@ public partial class DocumentPreviewCanvas : UserControl
             _drawPreview = null;
             RefreshOverlays();
         }
+        // Fallback: if drag ended without the rectangle getting mouse-up
         else if (_isDragging)
         {
             _isDragging = false;
             _activeBox = null;
             _originalRect = null;
 
-            // Release mouse from the rectangle
-            foreach (var child in OverlayCanvas.Children.OfType<Rectangle>())
-            {
-                if (child.IsMouseCaptured)
-                    child.ReleaseMouseCapture();
-            }
+            if (_dragRect?.IsMouseCaptured == true)
+                _dragRect.ReleaseMouseCapture();
+            _dragRect = null;
         }
     }
 

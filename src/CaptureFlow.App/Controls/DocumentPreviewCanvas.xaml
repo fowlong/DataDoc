@@ -11,6 +11,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -30,11 +31,63 @@
                 <Button Content="Fit" Style="{StaticResource ToolBarButton}" Command="{Binding ZoomFitCommand}" Margin="4,0,0,0" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" />
                 <ToggleButton Content="Draw Box" IsChecked="{Binding IsDrawingMode}" Padding="8,4" />
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" />
+                <ToggleButton x:Name="HelpToggle" Content="?" ToolTip="Show controls help" Padding="6,4" Width="28" FontWeight="Bold" />
+            </StackPanel>
+        </Border>
+
+        <!-- Collapsible controls instructions -->
+        <Border Grid.Row="1" Background="#FFF8E1" BorderBrush="#FFD54F" BorderThickness="1" CornerRadius="4"
+                Margin="0,0,0,4" Padding="10,8"
+                Visibility="{Binding IsChecked, ElementName=HelpToggle, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6" Foreground="#5D4037">
+                    Canvas Controls
+                </TextBlock>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#795548" Margin="0,0,0,3">Creating Fields</TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            1. Click "Draw Box" to enter draw mode
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            2. Click and drag on the document to draw a capture area
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            3. Release to create the field (min 5x5 pixels)
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap" Margin="0,4,0,0">
+                            Right-click a field for Duplicate / Delete
+                        </TextBlock>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                        <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#795548" Margin="0,0,0,3">Editing Fields</TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            Click a field to select it (highlighted border)
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            Drag a selected field to reposition it
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            Arrow keys: nudge position (+ Shift for fine)
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap">
+                            Delete key: remove selected field
+                        </TextBlock>
+                        <TextBlock FontSize="11" Foreground="#5D4037" TextWrapping="Wrap" Margin="0,4,0,0">
+                            Edit properties in the right panel
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 
         <!-- Canvas area -->
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                       x:Name="ScrollViewer" Background="#F0F0F0">
             <Grid x:Name="CanvasContainer" HorizontalAlignment="Center" VerticalAlignment="Center"
                   Margin="20">
@@ -64,7 +117,7 @@
         </ScrollViewer>
 
         <!-- Info bar -->
-        <Border Grid.Row="2" Background="{StaticResource PanelBackgroundBrush}" Padding="4" CornerRadius="4" Margin="0,4,0,0">
+        <Border Grid.Row="3" Background="{StaticResource PanelBackgroundBrush}" Padding="4" CornerRadius="4" Margin="0,4,0,0">
             <TextBlock x:Name="InfoText" Style="{StaticResource SubHeaderText}" />
         </Border>
     </Grid>
