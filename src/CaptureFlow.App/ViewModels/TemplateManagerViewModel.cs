@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using CaptureFlow.Core.Interfaces;
 using CaptureFlow.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;

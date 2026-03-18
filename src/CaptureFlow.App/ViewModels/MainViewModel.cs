@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using CaptureFlow.Core.Interfaces;
 using CaptureFlow.Core.Models;
@@ -41,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<CaptureBox> CaptureBoxes { get; } = [];
     public ObservableCollection<RepeatGroup> RepeatGroups { get; } = [];
     public ObservableCollection<Project> RecentProjects { get; } = [];
+    public ObservableCollection<string> CsvHeaders { get; } = [];
 
     // Undo/redo stacks
     private readonly Stack<Action> _undoStack = new();
@@ -95,16 +97,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenFolder()
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new OpenFolderDialog
         {
-            Description = "Select folder containing documents",
-            UseDescriptionForTitle = true
+            Title = "Select folder containing documents"
         };
 
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        if (dialog.ShowDialog() != true) return;
 
         SelectedTabIndex = 1; // Switch to batch tab
-        await Batch.LoadFolderAsync(dialog.SelectedPath);
+        await Batch.LoadFolderAsync(dialog.FolderName);
     }
 
     private async Task LoadDocumentAsync(string filePath)
@@ -240,6 +241,7 @@ public partial class MainViewModel : ObservableObject
                 RepeatGroups.ToList());
 
             ExtractionGrid.LoadResults(rows, CurrentDocument.FileName);
+            RefreshCsvHeaders();
             StatusMessage = $"Extracted {rows.Count} rows";
         }
         catch (Exception ex)
@@ -351,6 +353,203 @@ public partial class MainViewModel : ObservableObject
     private void Exit()
     {
         Application.Current.Shutdown();
+    }
+
+    public void RefreshCsvHeaders()
+    {
+        var headers = new HashSet<string>();
+
+        // Add headers from existing capture boxes
+        foreach (var box in CaptureBoxes)
+        {
+            if (!string.IsNullOrWhiteSpace(box.OutputHeader))
+                headers.Add(box.OutputHeader);
+        }
+
+        // Add headers from extraction results
+        if (ExtractionGrid.ResultsTable != null)
+        {
+            foreach (System.Data.DataColumn col in ExtractionGrid.ResultsTable.Columns)
+            {
+                if (!col.ColumnName.StartsWith("_"))
+                    headers.Add(col.ColumnName);
+            }
+        }
+
+        CsvHeaders.Clear();
+        foreach (var h in headers.OrderBy(h => h))
+            CsvHeaders.Add(h);
+    }
+
+    [RelayCommand]
+    private async Task ApplyPageTemplate(PageTemplate template)
+    {
+        if (template == null || Preview.Document == null) return;
+
+        foreach (var box in template.CaptureBoxes.Where(b => b.PageIndex == Preview.CurrentPageIndex || b.PageIndex == 0))
+        {
+            var newBox = new CaptureBox
+            {
+                Name = box.Name,
+                OutputHeader = box.OutputHeader,
+                PageIndex = Preview.CurrentPageIndex,
+                Rect = box.Rect,
+                ExtractionMode = box.ExtractionMode,
+                RowTargetMode = box.RowTargetMode,
+                Enabled = box.Enabled,
+                DefaultValue = box.DefaultValue,
+                Notes = box.Notes
+            };
+            CaptureBoxes.Add(newBox);
+        }
+
+        Preview.RefreshOverlays();
+        RefreshCsvHeaders();
+        StatusMessage = $"Applied page template '{template.Name}' to page {Preview.CurrentPageIndex + 1}";
+    }
+
+    [RelayCommand]
+    private async Task ApplyDocumentTemplate(DocumentTemplate template)
+    {
+        if (template == null || Preview.Document == null) return;
+
+        var pageTemplates = await _templateRepository.GetAllPageTemplatesAsync();
+
+        foreach (var assignment in template.PageAssignments)
+        {
+            var pageTemplate = pageTemplates.FirstOrDefault(t => t.Id == assignment.PageTemplateId);
+            if (pageTemplate == null) continue;
+
+            var targetPage = assignment.PageIndex ?? 0;
+            foreach (var box in pageTemplate.CaptureBoxes)
+            {
+                var newBox = new CaptureBox
+                {
+                    Name = box.Name,
+                    OutputHeader = box.OutputHeader,
+                    PageIndex = targetPage,
+                    Rect = box.Rect,
+                    ExtractionMode = box.ExtractionMode,
+                    RowTargetMode = box.RowTargetMode,
+                    Enabled = box.Enabled,
+                    DefaultValue = box.DefaultValue,
+                    Notes = box.Notes
+                };
+                CaptureBoxes.Add(newBox);
+            }
+        }
+
+        // Also add document-level fields
+        foreach (var box in template.DocumentLevelFields)
+        {
+            CaptureBoxes.Add(new CaptureBox
+            {
+                Name = box.Name,
+                OutputHeader = box.OutputHeader,
+                PageIndex = box.PageIndex,
+                Rect = box.Rect,
+                ExtractionMode = box.ExtractionMode,
+                RowTargetMode = box.RowTargetMode,
+                Enabled = box.Enabled
+            });
+        }
+
+        Preview.RefreshOverlays();
+        RefreshCsvHeaders();
+        StatusMessage = $"Applied document template '{template.Name}'";
+    }
+
+    [RelayCommand]
+    private async Task SaveCurrentAsPageTemplate()
+    {
+        if (CaptureBoxes.Count == 0)
+        {
+            StatusMessage = "No capture boxes to save";
+            return;
+        }
+
+        var currentPageBoxes = CaptureBoxes.Where(b => b.PageIndex == Preview.CurrentPageIndex).ToList();
+        if (currentPageBoxes.Count == 0)
+        {
+            StatusMessage = "No capture boxes on current page";
+            return;
+        }
+
+        var template = new PageTemplate
+        {
+            Name = $"Page {Preview.CurrentPageIndex + 1} - {DateTime.Now:yyyy-MM-dd HH:mm}",
+            CaptureBoxes = currentPageBoxes.Select(b => new CaptureBox
+            {
+                Name = b.Name,
+                OutputHeader = b.OutputHeader,
+                PageIndex = 0, // Normalize to page 0 for reuse
+                Rect = b.Rect,
+                ExtractionMode = b.ExtractionMode,
+                RowTargetMode = b.RowTargetMode,
+                Enabled = b.Enabled,
+                DefaultValue = b.DefaultValue,
+                Notes = b.Notes
+            }).ToList(),
+            ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
+        };
+
+        await _templateRepository.SavePageTemplateAsync(template);
+        TemplateManager.RefreshCommand.Execute(null);
+        StatusMessage = $"Saved page template: {template.Name}";
+    }
+
+    [RelayCommand]
+    private async Task SaveCurrentAsDocumentTemplate()
+    {
+        if (CaptureBoxes.Count == 0)
+        {
+            StatusMessage = "No capture boxes to save";
+            return;
+        }
+
+        // Group boxes by page, save each page as a page template, then create a doc template
+        var boxesByPage = CaptureBoxes.GroupBy(b => b.PageIndex).ToList();
+        var assignments = new List<PageTemplateAssignment>();
+
+        foreach (var group in boxesByPage)
+        {
+            var pageTemplate = new PageTemplate
+            {
+                Name = $"Auto - Page {group.Key + 1}",
+                CaptureBoxes = group.Select(b => new CaptureBox
+                {
+                    Name = b.Name,
+                    OutputHeader = b.OutputHeader,
+                    PageIndex = 0,
+                    Rect = b.Rect,
+                    ExtractionMode = b.ExtractionMode,
+                    RowTargetMode = b.RowTargetMode,
+                    Enabled = b.Enabled,
+                    DefaultValue = b.DefaultValue,
+                    Notes = b.Notes
+                }).ToList(),
+                ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
+            };
+
+            await _templateRepository.SavePageTemplateAsync(pageTemplate);
+
+            assignments.Add(new PageTemplateAssignment
+            {
+                PageTemplateId = pageTemplate.Id,
+                PageIndex = group.Key
+            });
+        }
+
+        var docTemplate = new DocumentTemplate
+        {
+            Name = $"Document - {DateTime.Now:yyyy-MM-dd HH:mm}",
+            PageAssignments = assignments,
+            ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
+        };
+
+        await _templateRepository.SaveDocumentTemplateAsync(docTemplate);
+        TemplateManager.RefreshCommand.Execute(null);
+        StatusMessage = $"Saved document template: {docTemplate.Name}";
     }
 
     private async Task LoadRecentProjectsAsync()

@@ -189,7 +189,6 @@ public sealed class DocxDocumentAdapter : IDocumentAdapter
     private static List<TextFragment> CreateTextFragments(List<string> lines, int pageIndex)
     {
         var fragments = new List<TextFragment>();
-        float usableHeight = PageHeightPx - 2 * Margin;
         float usableWidth = PageWidthPx - 2 * Margin;
 
         for (int i = 0; i < lines.Count; i++)

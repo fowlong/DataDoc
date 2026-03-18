@@ -185,9 +185,9 @@ public sealed class EmailDocumentAdapter : IDocumentAdapter
         return new EmailContent
         {
             Subject = msg.Subject ?? string.Empty,
-            From = msg.Sender?.Email ?? msg.GetEmailSender() ?? string.Empty,
-            To = msg.GetEmailRecipients(Storage.Recipient.RecipientType.To) ?? string.Empty,
-            Cc = msg.GetEmailRecipients(Storage.Recipient.RecipientType.Cc) ?? string.Empty,
+            From = msg.Sender?.Email ?? msg.GetEmailSender(false, false) ?? string.Empty,
+            To = msg.GetEmailRecipients(RecipientType.To, false, false) ?? string.Empty,
+            Cc = msg.GetEmailRecipients(RecipientType.Cc, false, false) ?? string.Empty,
             Date = msg.SentOn,
             Body = msg.BodyText ?? StripHtmlBasic(msg.BodyHtml ?? string.Empty)
         };

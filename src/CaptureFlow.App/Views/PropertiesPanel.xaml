@@ -24,7 +24,10 @@
                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
                             <TextBlock Text="{Binding OutputHeader, StringFormat=' [{0}]'}"
                                        Foreground="{StaticResource TextSecondaryBrush}"
-                                       FontSize="10" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                       FontSize="10" VerticalAlignment="Center" Margin="2,0,0,0" />
+                            <TextBlock Text="{Binding PageIndex, StringFormat=' pg {0}'}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontSize="10" VerticalAlignment="Center" Margin="2,0,0,0" />
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -40,7 +43,10 @@
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" Padding="4,3" />
 
                     <TextBlock Text="Output Header" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding OutputHeader, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" Padding="4,3" />
+                    <ComboBox IsEditable="True"
+                              Text="{Binding OutputHeader, UpdateSourceTrigger=PropertyChanged}"
+                              ItemsSource="{Binding DataContext.CsvHeaders, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              Margin="0,2,0,6" Padding="4,3" />
 
                     <TextBlock Text="Page" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBox Text="{Binding PageIndex}" Margin="0,2,0,6" Padding="4,3" IsReadOnly="True" />
