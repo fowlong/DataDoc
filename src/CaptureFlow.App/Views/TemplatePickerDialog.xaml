@@ -1,0 +1,37 @@
+<Window x:Class="CaptureFlow.App.Views.TemplatePickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select Template" Width="400" Height="350"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Select a template" Style="{StaticResource HeaderText}" Margin="0,0,0,8" />
+
+        <ListBox Grid.Row="1" x:Name="TemplateList" BorderThickness="1"
+                 BorderBrush="{StaticResource BorderBrush}"
+                 MouseDoubleClick="TemplateList_DoubleClick">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="4">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                        <TextBlock Text="{Binding CaptureBoxes.Count, StringFormat='{}{0} capture boxes'}"
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancel" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" Margin="0,0,8,0" />
+            <Button Content="Select" Style="{StaticResource PrimaryButton}" Click="Select_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

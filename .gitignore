@@ -1,0 +1,36 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.vs/
+*.DotSettings.user
+
+## Build
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+publish/
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+## IDE
+.idea/
+*.resharper
+.vscode/
+
+## OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+## Application data
+tessdata/
+*.traineddata
+
+## Logs
+*.log

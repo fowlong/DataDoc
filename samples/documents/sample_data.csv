@@ -1,0 +1,6 @@
+CustomerName,Address,City,State,ZipCode,InvoiceNumber,InvoiceDate,TotalAmount,DueDate
+"Acme Corporation","123 Main St","Springfield","IL","62701","INV-001","2025-01-15","1250.00","2025-02-15"
+"Global Industries","456 Oak Ave","Portland","OR","97201","INV-002","2025-01-16","3400.50","2025-02-16"
+"Tech Solutions LLC","789 Pine Rd","Austin","TX","78701","INV-003","2025-01-17","890.25","2025-02-17"
+"Northern Services","321 Elm St","Seattle","WA","98101","INV-004","2025-01-18","2100.00","2025-02-18"
+"Pacific Trading Co","654 Cedar Blvd","San Diego","CA","92101","INV-005","2025-01-19","5750.75","2025-02-19"

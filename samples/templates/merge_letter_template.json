@@ -1,0 +1,33 @@
+{
+  "description": "Sample DOCX merge template instructions",
+  "templateFormat": "DOCX",
+  "placeholders": [
+    "{{CustomerName}}",
+    "{{Address}}",
+    "{{City}}",
+    "{{State}}",
+    "{{ZipCode}}",
+    "{{InvoiceNumber}}",
+    "{{InvoiceDate}}",
+    "{{TotalAmount}}",
+    "{{DueDate}}"
+  ],
+  "instructions": [
+    "Create a DOCX file with the placeholders listed above.",
+    "Use double curly braces: {{FieldName}}",
+    "Placeholders can appear in paragraphs, tables, headers, and footers.",
+    "Load your CSV file and map headers to these placeholders.",
+    "CaptureFlow will generate one document per CSV row."
+  ],
+  "sampleCsvHeaders": [
+    "CustomerName",
+    "Address",
+    "City",
+    "State",
+    "ZipCode",
+    "InvoiceNumber",
+    "InvoiceDate",
+    "TotalAmount",
+    "DueDate"
+  ]
+}

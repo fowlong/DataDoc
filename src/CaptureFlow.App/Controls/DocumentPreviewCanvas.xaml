@@ -1,0 +1,71 @@
+<UserControl x:Class="CaptureFlow.App.Controls.DocumentPreviewCanvas"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:CaptureFlow.App.Converters">
+
+    <UserControl.Resources>
+        <conv:ByteArrayToImageConverter x:Key="ByteArrayToImage" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Page toolbar -->
+        <Border Grid.Row="0" Background="{StaticResource PanelBackgroundBrush}" Padding="4" CornerRadius="4" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Prev" Style="{StaticResource ToolBarButton}" Command="{Binding PreviousPageCommand}" Margin="0,0,4,0" />
+                <TextBlock Text="{Binding PageLabel}" VerticalAlignment="Center" Margin="8,0"
+                           Style="{StaticResource SubHeaderText}" />
+                <Button Content="Next" Style="{StaticResource ToolBarButton}" Command="{Binding NextPageCommand}" Margin="4,0,0,0" />
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" />
+                <Button Content="-" Style="{StaticResource ToolBarButton}" Command="{Binding ZoomOutCommand}" Width="28" />
+                <TextBlock Text="{Binding ZoomLevel, StringFormat={}{0:P0}}" VerticalAlignment="Center" Margin="4,0"
+                           Style="{StaticResource SubHeaderText}" MinWidth="40" TextAlignment="Center" />
+                <Button Content="+" Style="{StaticResource ToolBarButton}" Command="{Binding ZoomInCommand}" Width="28" />
+                <Button Content="Fit" Style="{StaticResource ToolBarButton}" Command="{Binding ZoomFitCommand}" Margin="4,0,0,0" />
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" />
+                <ToggleButton Content="Draw Box" IsChecked="{Binding IsDrawingMode}" Padding="8,4" />
+            </StackPanel>
+        </Border>
+
+        <!-- Canvas area -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                      x:Name="ScrollViewer" Background="#F0F0F0">
+            <Grid x:Name="CanvasContainer" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Margin="20">
+                <Grid.LayoutTransform>
+                    <ScaleTransform ScaleX="{Binding ZoomLevel}" ScaleY="{Binding ZoomLevel}" />
+                </Grid.LayoutTransform>
+
+                <!-- Page image -->
+                <Image x:Name="PageImage"
+                       Source="{Binding CurrentPageImage, Converter={StaticResource ByteArrayToImage}}"
+                       Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+
+                <!-- Overlay canvas for capture boxes -->
+                <Canvas x:Name="OverlayCanvas"
+                        Background="Transparent"
+                        MouseLeftButtonDown="OverlayCanvas_MouseLeftButtonDown"
+                        MouseMove="OverlayCanvas_MouseMove"
+                        MouseLeftButtonUp="OverlayCanvas_MouseLeftButtonUp"
+                        ClipToBounds="True" />
+
+                <!-- Loading indicator -->
+                <Border Background="#80000000" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="Loading..." Foreground="White" FontSize="18"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Info bar -->
+        <Border Grid.Row="2" Background="{StaticResource PanelBackgroundBrush}" Padding="4" CornerRadius="4" Margin="0,4,0,0">
+            <TextBlock x:Name="InfoText" Style="{StaticResource SubHeaderText}" />
+        </Border>
+    </Grid>
+</UserControl>

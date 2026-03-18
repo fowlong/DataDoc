@@ -1,0 +1,97 @@
+{
+  "id": "sample_invoice_template",
+  "name": "Invoice Extraction Template",
+  "version": 1,
+  "createdUtc": "2025-01-01T00:00:00Z",
+  "modifiedUtc": "2025-01-01T00:00:00Z",
+  "applicableFileTypes": ["Pdf", "Docx"],
+  "captureBoxes": [
+    {
+      "id": "box_invoice_number",
+      "name": "Invoice Number",
+      "outputHeader": "InvoiceNumber",
+      "pageIndex": 0,
+      "rect": { "x": 0.6, "y": 0.08, "width": 0.3, "height": 0.03 },
+      "extractionMode": "NativeWithOcrFallback",
+      "rowTargetMode": "DocumentRow",
+      "transformRules": [
+        { "type": "Trim", "order": 0, "enabled": true },
+        { "type": "RegexExtract", "parameter": "\\d+", "order": 1, "enabled": true }
+      ],
+      "validationRules": [
+        { "type": "Required", "message": "Invoice number is required", "severity": "Error", "enabled": true }
+      ],
+      "enabled": true,
+      "colorHex": "#2563EB",
+      "sortOrder": 0
+    },
+    {
+      "id": "box_invoice_date",
+      "name": "Invoice Date",
+      "outputHeader": "InvoiceDate",
+      "pageIndex": 0,
+      "rect": { "x": 0.6, "y": 0.12, "width": 0.3, "height": 0.03 },
+      "extractionMode": "NativeWithOcrFallback",
+      "rowTargetMode": "DocumentRow",
+      "transformRules": [
+        { "type": "Trim", "order": 0, "enabled": true },
+        { "type": "DateNormalize", "parameter": "yyyy-MM-dd", "order": 1, "enabled": true }
+      ],
+      "validationRules": [
+        { "type": "Date", "message": "Must be a valid date", "severity": "Warning", "enabled": true }
+      ],
+      "enabled": true,
+      "colorHex": "#DC2626",
+      "sortOrder": 1
+    },
+    {
+      "id": "box_vendor_name",
+      "name": "Vendor Name",
+      "outputHeader": "VendorName",
+      "pageIndex": 0,
+      "rect": { "x": 0.05, "y": 0.05, "width": 0.4, "height": 0.06 },
+      "extractionMode": "NativeWithOcrFallback",
+      "rowTargetMode": "DocumentRow",
+      "transformRules": [
+        { "type": "Trim", "order": 0, "enabled": true },
+        { "type": "CollapseSpaces", "order": 1, "enabled": true }
+      ],
+      "validationRules": [],
+      "enabled": true,
+      "colorHex": "#16A34A",
+      "sortOrder": 2
+    },
+    {
+      "id": "box_total",
+      "name": "Total Amount",
+      "outputHeader": "TotalAmount",
+      "pageIndex": 0,
+      "rect": { "x": 0.6, "y": 0.85, "width": 0.3, "height": 0.03 },
+      "extractionMode": "NativeWithOcrFallback",
+      "rowTargetMode": "DocumentRow",
+      "transformRules": [
+        { "type": "Trim", "order": 0, "enabled": true },
+        { "type": "NumberCleanup", "order": 1, "enabled": true }
+      ],
+      "validationRules": [
+        { "type": "Numeric", "message": "Total must be a number", "severity": "Error", "enabled": true }
+      ],
+      "enabled": true,
+      "colorHex": "#D97706",
+      "sortOrder": 3
+    }
+  ],
+  "repeatGroups": [
+    {
+      "id": "rg_line_items",
+      "name": "Line Items",
+      "pageIndex": 0,
+      "regionRect": { "x": 0.05, "y": 0.35, "width": 0.9, "height": 0.45 },
+      "rowDetectionMode": "FixedHeight",
+      "fixedRowHeight": 0.04,
+      "childFieldIds": [],
+      "enabled": true
+    }
+  ],
+  "notes": "Sample template for extracting common invoice fields. Adjust box positions to match your specific invoice layout."
+}
