@@ -1,0 +1,85 @@
+<UserControl x:Class="CaptureFlow.App.Views.TemplateManagerPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Page Templates -->
+        <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="0,0,4,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Page Templates" Style="{StaticResource HeaderText}" Margin="0,0,0,8" />
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding PageTemplates}"
+                         SelectedItem="{Binding SelectedPageTemplate}"
+                         BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4,4">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding CaptureBoxes.Count, StringFormat='{}{0} fields'}"
+                                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding ModifiedUtc, StringFormat='Modified: {0:d}'}"
+                                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Content="Duplicate" Style="{StaticResource ToolBarButton}" Command="{Binding DuplicatePageTemplateCommand}" Margin="0,0,4,0" />
+                    <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeletePageTemplateCommand}" Margin="0,0,4,0" />
+                    <Button Content="Export" Style="{StaticResource ToolBarButton}" Command="{Binding ExportTemplateCommand}" Margin="0,0,4,0" />
+                    <Button Content="Import" Style="{StaticResource ToolBarButton}" Command="{Binding ImportTemplateCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Document Templates -->
+        <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Margin="4,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Document Templates" Style="{StaticResource HeaderText}" Margin="0,0,0,8" />
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding DocumentTemplates}"
+                         SelectedItem="{Binding SelectedDocumentTemplate}"
+                         BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="4,4">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding PageAssignments.Count, StringFormat='{}{0} page assignments'}"
+                                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding ModifiedUtc, StringFormat='Modified: {0:d}'}"
+                                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Content="New" Style="{StaticResource ToolBarButton}" Command="{Binding CreateDocumentTemplateCommand}" Margin="0,0,4,0" />
+                    <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeleteDocumentTemplateCommand}" Margin="0,0,4,0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
