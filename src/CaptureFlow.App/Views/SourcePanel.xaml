@@ -5,12 +5,14 @@
 
     <UserControl.Resources>
         <conv:NullToVisibilityConverter x:Key="NullToVis" />
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -43,5 +45,44 @@
             <Button Content="Open Folder" Style="{StaticResource SecondaryButton}"
                     Command="{Binding OpenFolderCommand}" HorizontalAlignment="Stretch" />
         </StackPanel>
+
+        <!-- Collapsible Template Manager -->
+        <Expander Grid.Row="3" Header="Templates" IsExpanded="False" Margin="0,10,0,0">
+            <StackPanel Margin="0,6,0,0">
+                <!-- Apply Page Template -->
+                <TextBlock Text="Apply to Current Page" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                <ComboBox ItemsSource="{Binding TemplateManager.PageTemplates}"
+                          x:Name="PageTemplateCombo"
+                          DisplayMemberPath="Name" Padding="4,3" Margin="0,0,0,4" />
+                <Button Content="Apply to Page" Style="{StaticResource ToolBarButton}"
+                        Command="{Binding ApplyPageTemplateCommand}"
+                        CommandParameter="{Binding SelectedItem, ElementName=PageTemplateCombo}"
+                        HorizontalAlignment="Stretch" Margin="0,0,0,8" />
+
+                <!-- Apply Document Template -->
+                <TextBlock Text="Apply to Entire Document" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                <ComboBox ItemsSource="{Binding TemplateManager.DocumentTemplates}"
+                          x:Name="DocTemplateCombo"
+                          DisplayMemberPath="Name" Padding="4,3" Margin="0,0,0,4" />
+                <Button Content="Apply to Document" Style="{StaticResource ToolBarButton}"
+                        Command="{Binding ApplyDocumentTemplateCommand}"
+                        CommandParameter="{Binding SelectedItem, ElementName=DocTemplateCombo}"
+                        HorizontalAlignment="Stretch" Margin="0,0,0,8" />
+
+                <Separator Margin="0,4" />
+
+                <!-- Save current as template -->
+                <TextBlock Text="Save Current Layout" FontWeight="SemiBold" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                <Button Content="Save Page as Template" Style="{StaticResource ToolBarButton}"
+                        Command="{Binding SaveCurrentAsPageTemplateCommand}"
+                        HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                <Button Content="Save Doc as Template" Style="{StaticResource ToolBarButton}"
+                        Command="{Binding SaveCurrentAsDocumentTemplateCommand}"
+                        HorizontalAlignment="Stretch" />
+            </StackPanel>
+        </Expander>
     </Grid>
 </UserControl>
