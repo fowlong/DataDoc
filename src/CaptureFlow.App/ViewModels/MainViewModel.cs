@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using CaptureFlow.Core.Interfaces;
 using CaptureFlow.Core.Models;
@@ -95,16 +96,15 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenFolder()
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new OpenFolderDialog
         {
-            Description = "Select folder containing documents",
-            UseDescriptionForTitle = true
+            Title = "Select folder containing documents"
         };
 
-        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+        if (dialog.ShowDialog() != true) return;
 
         SelectedTabIndex = 1; // Switch to batch tab
-        await Batch.LoadFolderAsync(dialog.SelectedPath);
+        await Batch.LoadFolderAsync(dialog.FolderName);
     }
 
     private async Task LoadDocumentAsync(string filePath)

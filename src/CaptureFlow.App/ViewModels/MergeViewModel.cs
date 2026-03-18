@@ -193,12 +193,12 @@ public partial class MergeViewModel : ObservableObject
 
         if (string.IsNullOrEmpty(OutputDirectory))
         {
-            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            var dialog = new OpenFolderDialog
             {
-                Description = "Select output directory"
+                Title = "Select output directory"
             };
-            if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-            OutputDirectory = dialog.SelectedPath;
+            if (dialog.ShowDialog() != true) return;
+            OutputDirectory = dialog.FolderName;
         }
 
         IsProcessing = true;
@@ -234,12 +234,12 @@ public partial class MergeViewModel : ObservableObject
     [RelayCommand]
     private void SelectOutputDirectory()
     {
-        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        var dialog = new OpenFolderDialog
         {
-            Description = "Select output directory for generated documents"
+            Title = "Select output directory for generated documents"
         };
-        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            OutputDirectory = dialog.SelectedPath;
+        if (dialog.ShowDialog() == true)
+            OutputDirectory = dialog.FolderName;
     }
 
     private Dictionary<string, string> BuildFieldValues(Dictionary<string, string> csvRow)
