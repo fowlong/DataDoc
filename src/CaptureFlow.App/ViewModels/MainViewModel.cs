@@ -5,6 +5,7 @@ using CaptureFlow.Core.Interfaces;
 using CaptureFlow.Core.Models;
 using CaptureFlow.Core.Services.Adapters;
 using CaptureFlow.Core.Services.Extraction;
+using CaptureFlow.Core.Utilities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private SourceDocument? _currentDocument;
     [ObservableProperty] private int _currentPageIndex;
     [ObservableProperty] private CaptureBox? _selectedCaptureBox;
+    [ObservableProperty] private SourceDocument? _selectedSourceDocument;
+
+    // Track selected templates so UI ComboBoxes reflect the last-created one
+    [ObservableProperty] private PageTemplate? _selectedPageTemplate;
+    [ObservableProperty] private DocumentTemplate? _selectedDocTemplate;
 
     [ObservableProperty] private DocumentPreviewViewModel _preview;
     [ObservableProperty] private ExtractionGridViewModel _extractionGrid;
@@ -44,9 +50,19 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<Project> RecentProjects { get; } = [];
     public ObservableCollection<string> CsvHeaders { get; } = [];
 
+    // Per-document capture boxes: each doc has its own overlay
+    private readonly Dictionary<string, List<CaptureBox>> _documentCaptureBoxes = new();
+
+    // Persisted extraction results available to merge tab
+    private List<ExtractionRow> _lastExtractionRows = [];
+    public bool HasExtractionResults => _lastExtractionRows.Count > 0;
+
     // Undo/redo stacks
     private readonly Stack<Action> _undoStack = new();
     private readonly Stack<Action> _redoStack = new();
+
+    // Cache adapters per document for switching
+    private readonly Dictionary<string, IDocumentAdapter> _documentAdapters = new();
 
     public MainViewModel(
         DocumentAdapterFactory adapterFactory,
@@ -80,12 +96,102 @@ public partial class MainViewModel : ObservableObject
         _ = LoadRecentProjectsAsync();
     }
 
+    // When user clicks a different source document, switch the preview
+    partial void OnSelectedSourceDocumentChanged(SourceDocument? value)
+    {
+        if (value == null) return;
+        _ = SwitchToDocumentAsync(value);
+    }
+
+    private async Task SwitchToDocumentAsync(SourceDocument doc)
+    {
+        try
+        {
+            // Save current document's capture boxes before switching
+            if (CurrentDocument != null)
+            {
+                _documentCaptureBoxes[CurrentDocument.Id] = CaptureBoxes.ToList();
+            }
+
+            CurrentDocument = doc;
+
+            // Restore target document's capture boxes (empty by default)
+            CaptureBoxes.Clear();
+            if (_documentCaptureBoxes.TryGetValue(doc.Id, out var savedBoxes))
+            {
+                foreach (var box in savedBoxes)
+                    CaptureBoxes.Add(box);
+            }
+
+            IDocumentAdapter? adapter = null;
+            if (_documentAdapters.TryGetValue(doc.Id, out var cached))
+            {
+                adapter = cached;
+            }
+            else
+            {
+                adapter = _adapterFactory.GetAdapter(doc.FilePath);
+                if (adapter != null)
+                    _documentAdapters[doc.Id] = adapter;
+            }
+
+            if (adapter == null)
+            {
+                StatusMessage = $"No adapter for {doc.FileName}";
+                return;
+            }
+
+            CurrentPageIndex = 0;
+            await Preview.LoadDocumentAsync(doc, adapter);
+            Preview.RefreshOverlays();
+
+            WindowTitle = $"CaptureFlow CSV - {doc.FileName}";
+            PageInfo = $"Page 1 of {doc.PageCount}";
+            StatusMessage = $"Viewing {doc.FileName}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to switch to document {FileName}", doc.FileName);
+            StatusMessage = $"Error switching: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void RemoveSourceDocument(SourceDocument? doc)
+    {
+        if (doc == null) return;
+
+        // Clean up cached state
+        _documentAdapters.Remove(doc.Id);
+        _documentCaptureBoxes.Remove(doc.Id);
+        LoadedDocuments.Remove(doc);
+
+        // If we removed the current document, switch to another or clear
+        if (CurrentDocument?.Id == doc.Id)
+        {
+            if (LoadedDocuments.Count > 0)
+            {
+                SelectedSourceDocument = LoadedDocuments[0];
+            }
+            else
+            {
+                CurrentDocument = null;
+                CaptureBoxes.Clear();
+                Preview.Clear();
+                WindowTitle = "CaptureFlow CSV";
+                PageInfo = "";
+            }
+        }
+
+        StatusMessage = $"Removed {doc.FileName}";
+    }
+
     [RelayCommand]
     private async Task OpenFile()
     {
         var dialog = new OpenFileDialog
         {
-            Filter = CaptureFlow.Core.Utilities.FileTypeDetector.GetFileFilter(),
+            Filter = FileTypeDetector.GetFileFilter(),
             Title = "Open Document"
         };
 
@@ -104,11 +210,56 @@ public partial class MainViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true) return;
 
-        SelectedTabIndex = 1; // Switch to batch tab
-        await Batch.LoadFolderAsync(dialog.FolderName);
+        // Stay on Extract tab, populate source docs panel
+        SelectedTabIndex = 0;
+        IsProcessing = true;
+        StatusMessage = "Scanning folder...";
+
+        try
+        {
+            var dir = new DirectoryInfo(dialog.FolderName);
+            if (!dir.Exists) return;
+
+            var files = dir.EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .Where(f => _adapterFactory.CanHandle(f.FullName))
+                .ToList();
+
+            StatusMessage = $"Loading {files.Count} documents...";
+
+            foreach (var file in files)
+            {
+                // Skip if already loaded
+                if (LoadedDocuments.Any(d => d.FilePath == file.FullName))
+                    continue;
+
+                try
+                {
+                    await LoadDocumentAsync(file.FullName, selectAfterLoad: false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Skipped {FileName}", file.Name);
+                }
+            }
+
+            // Select the first document if nothing is selected
+            if (CurrentDocument == null && LoadedDocuments.Count > 0)
+                SelectedSourceDocument = LoadedDocuments[0];
+
+            StatusMessage = $"Loaded {LoadedDocuments.Count} documents from folder";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load folder");
+            StatusMessage = $"Folder error: {ex.Message}";
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
     }
 
-    private async Task LoadDocumentAsync(string filePath)
+    private async Task LoadDocumentAsync(string filePath, bool selectAfterLoad = true)
     {
         try
         {
@@ -127,23 +278,25 @@ public partial class MainViewModel : ObservableObject
             if (doc.State == ProcessingState.Error)
             {
                 StatusMessage = doc.ErrorMessage ?? "Failed to load document";
-                MessageBox.Show(doc.ErrorMessage ?? "Unknown error", "Load Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                if (selectAfterLoad)
+                {
+                    MessageBox.Show(doc.ErrorMessage ?? "Unknown error", "Load Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
                 return;
             }
 
-            CurrentDocument = doc;
+            // Cache adapter for later switching
+            _documentAdapters[doc.Id] = adapter;
             LoadedDocuments.Add(doc);
 
-            if (doc.PageCount > 0)
+            if (selectAfterLoad)
             {
-                CurrentPageIndex = 0;
-                await Preview.LoadDocumentAsync(doc, adapter);
+                SelectedSourceDocument = doc;
+                WindowTitle = $"CaptureFlow CSV - {doc.FileName}";
+                StatusMessage = $"Loaded {doc.FileName} ({doc.PageCount} pages)";
+                PageInfo = $"Page 1 of {doc.PageCount}";
             }
-
-            WindowTitle = $"CaptureFlow CSV - {doc.FileName}";
-            StatusMessage = $"Loaded {doc.FileName} ({doc.PageCount} pages)";
-            PageInfo = $"Page 1 of {doc.PageCount}";
         }
         catch (Exception ex)
         {
@@ -186,6 +339,8 @@ public partial class MainViewModel : ObservableObject
         };
 
         await _templateRepository.SavePageTemplateAsync(template);
+        TemplateManager.RefreshCommand.Execute(null);
+        SelectedPageTemplate = template;
         StatusMessage = $"Template saved: {template.Name}";
     }
 
@@ -235,14 +390,21 @@ public partial class MainViewModel : ObservableObject
             IsProcessing = true;
             StatusMessage = "Extracting...";
 
+            var boxes = CaptureBoxes.ToList();
             var rows = await _extractionService.ExtractAsync(
                 CurrentDocument,
-                CaptureBoxes.ToList(),
+                boxes,
                 RepeatGroups.ToList());
 
-            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName);
+            if (ExtractionGrid.AutoClearOnExtract)
+                _lastExtractionRows = rows;
+            else
+                _lastExtractionRows.AddRange(rows);
+
+            OnPropertyChanged(nameof(HasExtractionResults));
+            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName, boxes);
             RefreshCsvHeaders();
-            StatusMessage = $"Extracted {rows.Count} rows";
+            StatusMessage = $"Extracted {rows.Count} rows from {CurrentDocument.FileName}";
         }
         catch (Exception ex)
         {
@@ -252,6 +414,80 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             IsProcessing = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RunExtractionAll()
+    {
+        if (LoadedDocuments.Count == 0)
+        {
+            StatusMessage = "No documents loaded";
+            return;
+        }
+
+        // Save current doc's boxes first
+        if (CurrentDocument != null)
+            _documentCaptureBoxes[CurrentDocument.Id] = CaptureBoxes.ToList();
+
+        try
+        {
+            IsProcessing = true;
+            var allRows = new List<ExtractionRow>();
+            var groups = RepeatGroups.ToList();
+            int processed = 0;
+            int skipped = 0;
+
+            foreach (var doc in LoadedDocuments)
+            {
+                processed++;
+                StatusMessage = $"Extracting {doc.FileName} ({processed}/{LoadedDocuments.Count})...";
+                ProgressValue = (double)processed / LoadedDocuments.Count * 100;
+
+                // Use per-document capture boxes
+                var docBoxes = _documentCaptureBoxes.TryGetValue(doc.Id, out var saved)
+                    ? saved : [];
+
+                if (docBoxes.Count == 0)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                try
+                {
+                    var rows = await _extractionService.ExtractAsync(doc, docBoxes, groups);
+                    allRows.AddRange(rows);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Extraction failed for {FileName}", doc.FileName);
+                }
+            }
+
+            if (ExtractionGrid.AutoClearOnExtract)
+                _lastExtractionRows = allRows;
+            else
+                _lastExtractionRows.AddRange(allRows);
+            OnPropertyChanged(nameof(HasExtractionResults));
+            // Collect all capture boxes across all docs for group detection
+            var allBoxes = _documentCaptureBoxes.Values.SelectMany(b => b).ToList();
+            ExtractionGrid.LoadResults(allRows, $"{LoadedDocuments.Count} documents", allBoxes);
+            RefreshCsvHeaders();
+
+            var msg = $"Extracted {allRows.Count} rows from {LoadedDocuments.Count - skipped} documents";
+            if (skipped > 0) msg += $" ({skipped} skipped - no capture boxes)";
+            StatusMessage = msg;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Extract all failed");
+            StatusMessage = $"Extract all error: {ex.Message}";
+        }
+        finally
+        {
+            IsProcessing = false;
+            ProgressValue = 0;
         }
     }
 
@@ -277,8 +513,17 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            await _csvExportService.ExportAsync(ExtractionGrid.GetRows(), dialog.FileName);
-            StatusMessage = $"Exported to {dialog.FileName}";
+            var table = ExtractionGrid.ResultsTable;
+            if (table != null)
+            {
+                await _csvExportService.ExportTableAsync(table, dialog.FileName);
+                StatusMessage = $"Exported {table.Rows.Count} rows to {dialog.FileName}";
+            }
+            else
+            {
+                await _csvExportService.ExportAsync(ExtractionGrid.GetRows(), dialog.FileName);
+                StatusMessage = $"Exported to {dialog.FileName}";
+            }
         }
         catch (Exception ex)
         {
@@ -290,7 +535,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ManageTemplates()
     {
-        SelectedTabIndex = 3;
+        SelectedTabIndex = 2; // Extract=0, Merge=1, Templates=2
     }
 
     [RelayCommand]
@@ -314,7 +559,21 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenMergeView()
     {
-        SelectedTabIndex = 2;
+        SelectedTabIndex = 1; // Extract=0, Merge=1, Templates=2
+    }
+
+    [RelayCommand]
+    private void UseExtractionResultsInMerge()
+    {
+        if (_lastExtractionRows.Count == 0)
+        {
+            StatusMessage = "No extraction results to use";
+            return;
+        }
+
+        Merge.LoadFromExtractionResults(_lastExtractionRows);
+        SelectedTabIndex = 1;
+        StatusMessage = $"Loaded {_lastExtractionRows.Count} extraction rows into merge";
     }
 
     [RelayCommand]
@@ -381,37 +640,47 @@ public partial class MainViewModel : ObservableObject
             CsvHeaders.Add(h);
     }
 
+    public List<ExtractionRow> GetLastExtractionRows() => _lastExtractionRows;
+
     [RelayCommand]
     private async Task ApplyPageTemplate(PageTemplate template)
     {
         if (template == null || Preview.Document == null) return;
 
-        foreach (var box in template.CaptureBoxes.Where(b => b.PageIndex == Preview.CurrentPageIndex || b.PageIndex == 0))
+        // Clear existing boxes on the target page to prevent duplication
+        var pageIndex = Preview.CurrentPageIndex;
+        var toRemove = CaptureBoxes.Where(b => b.PageIndex == pageIndex).ToList();
+        foreach (var b in toRemove) CaptureBoxes.Remove(b);
+
+        foreach (var box in template.CaptureBoxes.Where(b => b.PageIndex == pageIndex || b.PageIndex == 0))
         {
-            var newBox = new CaptureBox
+            CaptureBoxes.Add(new CaptureBox
             {
                 Name = box.Name,
                 OutputHeader = box.OutputHeader,
-                PageIndex = Preview.CurrentPageIndex,
+                PageIndex = pageIndex,
                 Rect = box.Rect,
                 ExtractionMode = box.ExtractionMode,
                 RowTargetMode = box.RowTargetMode,
                 Enabled = box.Enabled,
                 DefaultValue = box.DefaultValue,
-                Notes = box.Notes
-            };
-            CaptureBoxes.Add(newBox);
+                Notes = box.Notes,
+                CsvGroup = box.CsvGroup
+            });
         }
 
         Preview.RefreshOverlays();
         RefreshCsvHeaders();
-        StatusMessage = $"Applied page template '{template.Name}' to page {Preview.CurrentPageIndex + 1}";
+        StatusMessage = $"Applied page template '{template.Name}' to page {pageIndex + 1}";
     }
 
     [RelayCommand]
     private async Task ApplyDocumentTemplate(DocumentTemplate template)
     {
         if (template == null || Preview.Document == null) return;
+
+        // Clear all existing boxes for this document to prevent duplication
+        CaptureBoxes.Clear();
 
         var pageTemplates = await _templateRepository.GetAllPageTemplatesAsync();
 
@@ -423,7 +692,7 @@ public partial class MainViewModel : ObservableObject
             var targetPage = assignment.PageIndex ?? 0;
             foreach (var box in pageTemplate.CaptureBoxes)
             {
-                var newBox = new CaptureBox
+                CaptureBoxes.Add(new CaptureBox
                 {
                     Name = box.Name,
                     OutputHeader = box.OutputHeader,
@@ -433,13 +702,12 @@ public partial class MainViewModel : ObservableObject
                     RowTargetMode = box.RowTargetMode,
                     Enabled = box.Enabled,
                     DefaultValue = box.DefaultValue,
-                    Notes = box.Notes
-                };
-                CaptureBoxes.Add(newBox);
+                    Notes = box.Notes,
+                    CsvGroup = box.CsvGroup
+                });
             }
         }
 
-        // Also add document-level fields
         foreach (var box in template.DocumentLevelFields)
         {
             CaptureBoxes.Add(new CaptureBox
@@ -450,13 +718,85 @@ public partial class MainViewModel : ObservableObject
                 Rect = box.Rect,
                 ExtractionMode = box.ExtractionMode,
                 RowTargetMode = box.RowTargetMode,
-                Enabled = box.Enabled
+                Enabled = box.Enabled,
+                CsvGroup = box.CsvGroup
             });
         }
 
         Preview.RefreshOverlays();
         RefreshCsvHeaders();
         StatusMessage = $"Applied document template '{template.Name}'";
+    }
+
+    [RelayCommand]
+    private async Task ApplyDocumentTemplateToAll(DocumentTemplate template)
+    {
+        if (template == null || LoadedDocuments.Count == 0) return;
+
+        var pageTemplates = await _templateRepository.GetAllPageTemplatesAsync();
+        int applied = 0;
+
+        foreach (var doc in LoadedDocuments)
+        {
+            // Clear existing boxes for this doc before applying template
+            var docBoxes = new List<CaptureBox>();
+            _documentCaptureBoxes[doc.Id] = docBoxes;
+
+            foreach (var assignment in template.PageAssignments)
+            {
+                var pageTemplate = pageTemplates.FirstOrDefault(t => t.Id == assignment.PageTemplateId);
+                if (pageTemplate == null) continue;
+
+                var targetPage = assignment.PageIndex ?? 0;
+                if (targetPage >= doc.PageCount) continue;
+
+                foreach (var box in pageTemplate.CaptureBoxes)
+                {
+                    docBoxes.Add(new CaptureBox
+                    {
+                        Name = box.Name,
+                        OutputHeader = box.OutputHeader,
+                        PageIndex = targetPage,
+                        Rect = box.Rect,
+                        ExtractionMode = box.ExtractionMode,
+                        RowTargetMode = box.RowTargetMode,
+                        Enabled = box.Enabled,
+                        DefaultValue = box.DefaultValue,
+                        Notes = box.Notes,
+                        CsvGroup = box.CsvGroup
+                    });
+                }
+            }
+
+            foreach (var box in template.DocumentLevelFields)
+            {
+                docBoxes.Add(new CaptureBox
+                {
+                    Name = box.Name,
+                    OutputHeader = box.OutputHeader,
+                    PageIndex = box.PageIndex,
+                    Rect = box.Rect,
+                    ExtractionMode = box.ExtractionMode,
+                    RowTargetMode = box.RowTargetMode,
+                    Enabled = box.Enabled,
+                    CsvGroup = box.CsvGroup
+                });
+            }
+
+            applied++;
+        }
+
+        // Reload current document's boxes into the active collection
+        if (CurrentDocument != null && _documentCaptureBoxes.TryGetValue(CurrentDocument.Id, out var currentBoxes))
+        {
+            CaptureBoxes.Clear();
+            foreach (var box in currentBoxes)
+                CaptureBoxes.Add(box);
+        }
+
+        Preview.RefreshOverlays();
+        RefreshCsvHeaders();
+        StatusMessage = $"Applied document template '{template.Name}' to {applied} documents";
     }
 
     [RelayCommand]
@@ -488,13 +828,15 @@ public partial class MainViewModel : ObservableObject
                 RowTargetMode = b.RowTargetMode,
                 Enabled = b.Enabled,
                 DefaultValue = b.DefaultValue,
-                Notes = b.Notes
+                Notes = b.Notes,
+                CsvGroup = b.CsvGroup
             }).ToList(),
             ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
         };
 
         await _templateRepository.SavePageTemplateAsync(template);
         TemplateManager.RefreshCommand.Execute(null);
+        SelectedPageTemplate = template;
         StatusMessage = $"Saved page template: {template.Name}";
     }
 
@@ -526,7 +868,8 @@ public partial class MainViewModel : ObservableObject
                     RowTargetMode = b.RowTargetMode,
                     Enabled = b.Enabled,
                     DefaultValue = b.DefaultValue,
-                    Notes = b.Notes
+                    Notes = b.Notes,
+                    CsvGroup = b.CsvGroup
                 }).ToList(),
                 ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
             };
@@ -549,6 +892,7 @@ public partial class MainViewModel : ObservableObject
 
         await _templateRepository.SaveDocumentTemplateAsync(docTemplate);
         TemplateManager.RefreshCommand.Execute(null);
+        SelectedDocTemplate = docTemplate;
         StatusMessage = $"Saved document template: {docTemplate.Name}";
     }
 

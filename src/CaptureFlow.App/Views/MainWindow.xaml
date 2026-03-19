@@ -13,7 +13,6 @@
     <Window.InputBindings>
         <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFileCommand}" />
         <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding OpenFolderCommand}" />
-        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveTemplateCommand}" />
         <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCsvCommand}" />
         <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
         <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
@@ -48,16 +47,10 @@
                 <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
-            <MenuItem Header="_Templates">
-                <MenuItem Header="_Save Template..." Command="{Binding SaveTemplateCommand}" InputGestureText="Ctrl+S" />
-                <MenuItem Header="_Load Template..." Command="{Binding LoadTemplateCommand}" />
-                <MenuItem Header="_Manage Templates..." Command="{Binding ManageTemplatesCommand}" />
-                <Separator />
-                <MenuItem Header="_Import Template..." Command="{Binding ImportTemplateCommand}" />
-                <MenuItem Header="_Export Template..." Command="{Binding ExportTemplateCommand}" />
-            </MenuItem>
             <MenuItem Header="_Extract">
                 <MenuItem Header="_Run Extraction" Command="{Binding RunExtractionCommand}" InputGestureText="F5" />
+                <MenuItem Header="Run Extraction _All" Command="{Binding RunExtractionAllCommand}" />
+                <Separator />
                 <MenuItem Header="Export _CSV..." Command="{Binding ExportCsvCommand}" InputGestureText="Ctrl+E" />
             </MenuItem>
             <MenuItem Header="_Merge">
@@ -73,13 +66,9 @@
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
                 Padding="8,4">
             <StackPanel Orientation="Horizontal">
-                <Button Content="Open File" Style="{StaticResource ToolBarButton}" Command="{Binding OpenFileCommand}" Margin="0,0,4,0" />
-                <Button Content="Open Folder" Style="{StaticResource ToolBarButton}" Command="{Binding OpenFolderCommand}" Margin="0,0,4,0" />
+                <Button Content="Extract" Style="{StaticResource PrimaryButton}" Command="{Binding RunExtractionCommand}" Margin="0,0,4,0" Padding="12,4" ToolTip="Extract current document (F5)" />
+                <Button Content="Extract All" Style="{StaticResource SecondaryButton}" Command="{Binding RunExtractionAllCommand}" Margin="0,0,4,0" Padding="12,4" ToolTip="Extract all loaded documents" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
-                <Button Content="Save Template" Style="{StaticResource ToolBarButton}" Command="{Binding SaveTemplateCommand}" Margin="0,0,4,0" />
-                <Button Content="Load Template" Style="{StaticResource ToolBarButton}" Command="{Binding LoadTemplateCommand}" Margin="0,0,4,0" />
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
-                <Button Content="Run Extraction" Style="{StaticResource PrimaryButton}" Command="{Binding RunExtractionCommand}" Margin="0,0,4,0" Padding="12,4" />
                 <Button Content="Export CSV" Style="{StaticResource SecondaryButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,4,0" Padding="12,4" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
                 <Button Content="Merge" Style="{StaticResource ToolBarButton}" Command="{Binding OpenMergeViewCommand}" />
@@ -138,11 +127,6 @@
                         <views:PropertiesPanel DataContext="{Binding}" />
                     </Border>
                 </Grid>
-            </TabItem>
-
-            <!-- Batch Tab -->
-            <TabItem Header="Batch">
-                <views:BatchPanel DataContext="{Binding Batch}" />
             </TabItem>
 
             <!-- Merge Tab -->

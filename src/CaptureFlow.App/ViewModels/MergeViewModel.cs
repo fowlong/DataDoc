@@ -29,6 +29,8 @@ public partial class MergeViewModel : ObservableObject
     [ObservableProperty] private int _processedRows;
     [ObservableProperty] private byte[]? _previewImage;
     [ObservableProperty] private DataTable? _csvPreviewTable;
+    [ObservableProperty] private bool _hasPreview;
+    [ObservableProperty] private int _previewRowIndex = 1;
 
     public ObservableCollection<string> CsvHeaders { get; } = [];
     public ObservableCollection<string> TemplatePlaceholders { get; } = [];
@@ -171,19 +173,28 @@ public partial class MergeViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(TemplateFilePath) || _csvRows.Count == 0) return;
 
+        var rowIndex = Math.Clamp(PreviewRowIndex - 1, 0, _csvRows.Count - 1);
+
         try
         {
-            var fieldValues = BuildFieldValues(_csvRows[0]);
+            var fieldValues = BuildFieldValues(_csvRows[rowIndex]);
             var previewBytes = await _mergeService.GeneratePreviewAsync(
                 TemplateFilePath, fieldValues, OutputFormat);
             PreviewImage = previewBytes;
-            StatusText = "Preview generated for row 1";
+            HasPreview = previewBytes is { Length: > 0 };
+            StatusText = $"Preview generated for row {rowIndex + 1}";
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Preview failed");
             StatusText = $"Preview failed: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private async Task PreviewRow()
+    {
+        await Preview();
     }
 
     [RelayCommand]
@@ -253,5 +264,64 @@ public partial class MergeViewModel : ObservableObject
                 result[mapping.TemplatePlaceholder] = "";
         }
         return result;
+    }
+
+    /// <summary>
+    /// Load extraction results directly without requiring CSV export/import.
+    /// Converts ExtractionRow data into the same internal format as CSV load.
+    /// </summary>
+    public void LoadFromExtractionResults(List<ExtractionRow> rows)
+    {
+        _csvRows.Clear();
+        CsvHeaders.Clear();
+
+        if (rows.Count == 0)
+        {
+            StatusText = "No extraction results to load";
+            return;
+        }
+
+        // Collect all unique headers from extraction rows
+        var headers = rows
+            .SelectMany(r => r.Cells.Keys)
+            .Distinct()
+            .OrderBy(h => h)
+            .ToList();
+
+        foreach (var h in headers)
+            CsvHeaders.Add(h);
+
+        // Convert ExtractionRows to Dictionary<string, string> rows
+        foreach (var row in rows)
+        {
+            var csvRow = new Dictionary<string, string>();
+            foreach (var header in headers)
+            {
+                csvRow[header] = row.Cells.TryGetValue(header, out var cell)
+                    ? cell.DisplayValue
+                    : "";
+            }
+            _csvRows.Add(csvRow);
+        }
+
+        TotalRows = _csvRows.Count;
+        CsvFilePath = "(extraction results)";
+
+        // Build preview table
+        var table = new DataTable();
+        foreach (var h in headers)
+            table.Columns.Add(h, typeof(string));
+
+        foreach (var row in _csvRows.Take(50))
+        {
+            var dr = table.NewRow();
+            foreach (var h in headers)
+                dr[h] = row.GetValueOrDefault(h, "");
+            table.Rows.Add(dr);
+        }
+
+        CsvPreviewTable = table;
+        StatusText = $"Loaded {_csvRows.Count} rows from extraction results";
+        AutoMapFields();
     }
 }
