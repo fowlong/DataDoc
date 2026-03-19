@@ -127,8 +127,6 @@
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock Text="Loading Document Designer..."
                                    Style="{StaticResource HeaderText}" HorizontalAlignment="Center" />
-                        <TextBlock Text="Requires internet connection for first load"
-                                   Style="{StaticResource SubHeaderText}" HorizontalAlignment="Center" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
