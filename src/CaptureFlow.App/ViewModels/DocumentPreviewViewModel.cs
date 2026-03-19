@@ -159,6 +159,16 @@ public partial class DocumentPreviewViewModel : ObservableObject
         }
     }
 
+    public void Clear()
+    {
+        Document = null;
+        _currentAdapter = null;
+        CurrentPageImage = null;
+        SelectedBox = null;
+        PageLabel = "";
+        OverlaysChanged?.Invoke();
+    }
+
     public void RefreshOverlays()
     {
         OverlaysChanged?.Invoke();

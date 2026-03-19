@@ -159,6 +159,54 @@ public partial class TemplateManagerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ExportDocTemplate()
+    {
+        if (SelectedDocumentTemplate == null) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "JSON Files (*.json)|*.json",
+            FileName = SelectedDocumentTemplate.Name + ".json"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var json = await _templateRepository.ExportTemplateAsync(SelectedDocumentTemplate.Id, isDocumentTemplate: true);
+            await File.WriteAllTextAsync(dialog.FileName, json);
+            StatusText = $"Exported to {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportDocTemplate()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "JSON Files (*.json)|*.json"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(dialog.FileName);
+            await _templateRepository.ImportTemplateAsync(json);
+            await RefreshAsync();
+            StatusText = "Document template imported";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Import failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private async Task RenamePageTemplate(string newName)
     {
         if (SelectedPageTemplate == null || string.IsNullOrWhiteSpace(newName)) return;

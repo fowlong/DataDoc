@@ -37,11 +37,15 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                    <Button Content="Duplicate" Style="{StaticResource ToolBarButton}" Command="{Binding DuplicatePageTemplateCommand}" Margin="0,0,4,0" />
-                    <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeletePageTemplateCommand}" Margin="0,0,4,0" />
-                    <Button Content="Export" Style="{StaticResource ToolBarButton}" Command="{Binding ExportTemplateCommand}" Margin="0,0,4,0" />
-                    <Button Content="Import" Style="{StaticResource ToolBarButton}" Command="{Binding ImportTemplateCommand}" />
+                <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <Button Content="Duplicate" Style="{StaticResource ToolBarButton}" Command="{Binding DuplicatePageTemplateCommand}" Margin="0,0,4,0" />
+                        <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeletePageTemplateCommand}" Margin="0,0,4,0" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Save to File" Style="{StaticResource ToolBarButton}" Command="{Binding ExportTemplateCommand}" Margin="0,0,4,0" ToolTip="Save selected template to a .json file" />
+                        <Button Content="Load from File" Style="{StaticResource ToolBarButton}" Command="{Binding ImportTemplateCommand}" ToolTip="Load a template from a .json file" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
@@ -75,9 +79,15 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                    <Button Content="New" Style="{StaticResource ToolBarButton}" Command="{Binding CreateDocumentTemplateCommand}" Margin="0,0,4,0" />
-                    <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeleteDocumentTemplateCommand}" Margin="0,0,4,0" />
+                <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <Button Content="New" Style="{StaticResource ToolBarButton}" Command="{Binding CreateDocumentTemplateCommand}" Margin="0,0,4,0" />
+                        <Button Content="Delete" Style="{StaticResource ToolBarButton}" Command="{Binding DeleteDocumentTemplateCommand}" Margin="0,0,4,0" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Save to File" Style="{StaticResource ToolBarButton}" Command="{Binding ExportDocTemplateCommand}" Margin="0,0,4,0" ToolTip="Save selected document template to a .json file" />
+                        <Button Content="Load from File" Style="{StaticResource ToolBarButton}" Command="{Binding ImportDocTemplateCommand}" ToolTip="Load a document template from a .json file" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>

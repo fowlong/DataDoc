@@ -50,6 +50,9 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<Project> RecentProjects { get; } = [];
     public ObservableCollection<string> CsvHeaders { get; } = [];
 
+    // Per-document capture boxes: each doc has its own overlay
+    private readonly Dictionary<string, List<CaptureBox>> _documentCaptureBoxes = new();
+
     // Persisted extraction results available to merge tab
     private List<ExtractionRow> _lastExtractionRows = [];
     public bool HasExtractionResults => _lastExtractionRows.Count > 0;
@@ -104,7 +107,21 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            // Save current document's capture boxes before switching
+            if (CurrentDocument != null)
+            {
+                _documentCaptureBoxes[CurrentDocument.Id] = CaptureBoxes.ToList();
+            }
+
             CurrentDocument = doc;
+
+            // Restore target document's capture boxes (empty by default)
+            CaptureBoxes.Clear();
+            if (_documentCaptureBoxes.TryGetValue(doc.Id, out var savedBoxes))
+            {
+                foreach (var box in savedBoxes)
+                    CaptureBoxes.Add(box);
+            }
 
             IDocumentAdapter? adapter = null;
             if (_documentAdapters.TryGetValue(doc.Id, out var cached))
@@ -137,6 +154,36 @@ public partial class MainViewModel : ObservableObject
             _logger.LogError(ex, "Failed to switch to document {FileName}", doc.FileName);
             StatusMessage = $"Error switching: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private void RemoveSourceDocument(SourceDocument? doc)
+    {
+        if (doc == null) return;
+
+        // Clean up cached state
+        _documentAdapters.Remove(doc.Id);
+        _documentCaptureBoxes.Remove(doc.Id);
+        LoadedDocuments.Remove(doc);
+
+        // If we removed the current document, switch to another or clear
+        if (CurrentDocument?.Id == doc.Id)
+        {
+            if (LoadedDocuments.Count > 0)
+            {
+                SelectedSourceDocument = LoadedDocuments[0];
+            }
+            else
+            {
+                CurrentDocument = null;
+                CaptureBoxes.Clear();
+                Preview.Clear();
+                WindowTitle = "CaptureFlow CSV";
+                PageInfo = "";
+            }
+        }
+
+        StatusMessage = $"Removed {doc.FileName}";
     }
 
     [RelayCommand]
@@ -374,19 +421,17 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        if (CaptureBoxes.Count == 0)
-        {
-            StatusMessage = "No capture boxes defined";
-            return;
-        }
+        // Save current doc's boxes first
+        if (CurrentDocument != null)
+            _documentCaptureBoxes[CurrentDocument.Id] = CaptureBoxes.ToList();
 
         try
         {
             IsProcessing = true;
             var allRows = new List<ExtractionRow>();
-            var boxes = CaptureBoxes.ToList();
             var groups = RepeatGroups.ToList();
             int processed = 0;
+            int skipped = 0;
 
             foreach (var doc in LoadedDocuments)
             {
@@ -394,9 +439,19 @@ public partial class MainViewModel : ObservableObject
                 StatusMessage = $"Extracting {doc.FileName} ({processed}/{LoadedDocuments.Count})...";
                 ProgressValue = (double)processed / LoadedDocuments.Count * 100;
 
+                // Use per-document capture boxes
+                var docBoxes = _documentCaptureBoxes.TryGetValue(doc.Id, out var saved)
+                    ? saved : [];
+
+                if (docBoxes.Count == 0)
+                {
+                    skipped++;
+                    continue;
+                }
+
                 try
                 {
-                    var rows = await _extractionService.ExtractAsync(doc, boxes, groups);
+                    var rows = await _extractionService.ExtractAsync(doc, docBoxes, groups);
                     allRows.AddRange(rows);
                 }
                 catch (Exception ex)
@@ -409,7 +464,10 @@ public partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(HasExtractionResults));
             ExtractionGrid.LoadResults(allRows, $"{LoadedDocuments.Count} documents");
             RefreshCsvHeaders();
-            StatusMessage = $"Extracted {allRows.Count} rows from {LoadedDocuments.Count} documents";
+
+            var msg = $"Extracted {allRows.Count} rows from {LoadedDocuments.Count - skipped} documents";
+            if (skipped > 0) msg += $" ({skipped} skipped - no capture boxes)";
+            StatusMessage = msg;
         }
         catch (Exception ex)
         {
@@ -653,18 +711,24 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var doc in LoadedDocuments)
         {
+            // Get or create the per-document box list
+            if (!_documentCaptureBoxes.TryGetValue(doc.Id, out var docBoxes))
+            {
+                docBoxes = [];
+                _documentCaptureBoxes[doc.Id] = docBoxes;
+            }
+
             foreach (var assignment in template.PageAssignments)
             {
                 var pageTemplate = pageTemplates.FirstOrDefault(t => t.Id == assignment.PageTemplateId);
                 if (pageTemplate == null) continue;
 
                 var targetPage = assignment.PageIndex ?? 0;
-                // Ensure target page exists in this doc
                 if (targetPage >= doc.PageCount) continue;
 
                 foreach (var box in pageTemplate.CaptureBoxes)
                 {
-                    CaptureBoxes.Add(new CaptureBox
+                    docBoxes.Add(new CaptureBox
                     {
                         Name = box.Name,
                         OutputHeader = box.OutputHeader,
@@ -681,7 +745,7 @@ public partial class MainViewModel : ObservableObject
 
             foreach (var box in template.DocumentLevelFields)
             {
-                CaptureBoxes.Add(new CaptureBox
+                docBoxes.Add(new CaptureBox
                 {
                     Name = box.Name,
                     OutputHeader = box.OutputHeader,
@@ -694,6 +758,14 @@ public partial class MainViewModel : ObservableObject
             }
 
             applied++;
+        }
+
+        // Reload current document's boxes into the active collection
+        if (CurrentDocument != null && _documentCaptureBoxes.TryGetValue(CurrentDocument.Id, out var currentBoxes))
+        {
+            CaptureBoxes.Clear();
+            foreach (var box in currentBoxes)
+                CaptureBoxes.Add(box);
         }
 
         Preview.RefreshOverlays();
