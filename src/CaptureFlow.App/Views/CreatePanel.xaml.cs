@@ -11,6 +11,7 @@ namespace CaptureFlow.App.Views;
 public partial class CreatePanel : UserControl, IDesignerBridge
 {
     private bool _isReady;
+    private TaskCompletionSource? _readyTcs = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
 
     public bool IsReady => _isReady;
@@ -71,6 +72,7 @@ public partial class CreatePanel : UserControl, IDesignerBridge
             {
                 case "ready":
                     _isReady = true;
+                    _readyTcs?.TrySetResult();
                     OnReady?.Invoke();
                     break;
 
@@ -145,11 +147,22 @@ public partial class CreatePanel : UserControl, IDesignerBridge
             .Replace("\r", "\\r");
     }
 
+    private async Task WaitForReadyAsync(TimeSpan timeout)
+    {
+        if (_isReady) return;
+        var tcs = _readyTcs;
+        if (tcs == null) return;
+        var timeoutTask = Task.Delay(timeout);
+        var completed = await Task.WhenAny(tcs.Task, timeoutTask);
+        if (completed == timeoutTask)
+            throw new TimeoutException("Designer did not become ready within the timeout period. The pdfme library may still be loading.");
+    }
+
     // ---- IDesignerBridge implementation ----
 
     public async Task LoadBasePdfAsync(string base64Pdf)
     {
-        if (!_isReady) throw new InvalidOperationException("Designer not ready");
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
 
         // For large PDFs, passing via script can exceed limits. Use a chunked approach if needed.
         // For now, pass directly (works for most documents).
@@ -171,7 +184,7 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 
     public async Task SetTemplateJsonAsync(string json)
     {
-        if (!_isReady) throw new InvalidOperationException("Designer not ready");
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
 
         var escaped = EscapeForJs(json);
         await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
@@ -191,7 +204,7 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 
     public async Task<byte[]> GenerateSinglePdfAsync(string inputsJson)
     {
-        if (!_isReady) throw new InvalidOperationException("Designer not ready");
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
 
         var requestId = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<string>();

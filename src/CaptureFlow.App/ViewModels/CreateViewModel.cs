@@ -123,6 +123,8 @@ public partial class CreateViewModel : ObservableObject
 
             if (_designerBridge != null)
             {
+                if (!_designerBridge.IsReady)
+                    StatusText = "Waiting for designer to initialize...";
                 await _designerBridge.LoadBasePdfAsync(base64);
                 StatusText = $"Loaded base document: {Path.GetFileName(dialog.FileName)}";
             }
