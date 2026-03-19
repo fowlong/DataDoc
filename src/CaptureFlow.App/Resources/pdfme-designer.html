@@ -24,7 +24,9 @@
         function postMessage(data) {
             try {
                 if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage(JSON.stringify(data));
+                    // Pass the object directly — WebView2 serializes it.
+                    // Do NOT JSON.stringify first, or WebMessageAsJson will double-encode.
+                    window.chrome.webview.postMessage(data);
                 }
             } catch(e) {}
         }
