@@ -32,9 +32,24 @@ public partial class MergeViewModel : ObservableObject
     [ObservableProperty] private bool _hasPreview;
     [ObservableProperty] private int _previewRowIndex = 1;
 
+    // Multi-page preview (Phase 3)
+    [ObservableProperty] private int _previewPageIndex;
+    [ObservableProperty] private int _previewPageCount = 1;
+    [ObservableProperty] private bool _hasMultiplePages;
+
+    // Additive editing (Phase 4)
+    [ObservableProperty] private bool _isAnnotationMode;
+    [ObservableProperty] private MergeAnnotation? _selectedAnnotation;
+
+    public string PreviewPageDisplay => $"Page {PreviewPageIndex + 1} of {PreviewPageCount}";
+
+    partial void OnPreviewPageIndexChanged(int value) => OnPropertyChanged(nameof(PreviewPageDisplay));
+    partial void OnPreviewPageCountChanged(int value) => OnPropertyChanged(nameof(PreviewPageDisplay));
+
     public ObservableCollection<string> CsvHeaders { get; } = [];
     public ObservableCollection<string> TemplatePlaceholders { get; } = [];
     public ObservableCollection<MergeFieldMapping> FieldMappings { get; } = [];
+    public ObservableCollection<MergeAnnotation> Annotations { get; } = [];
 
     private List<Dictionary<string, string>> _csvRows = [];
 
@@ -142,6 +157,11 @@ public partial class MergeViewModel : ObservableObject
 
             StatusText = $"Template loaded: {Path.GetFileName(dialog.FileName)} ({placeholders.Count} placeholders)";
             AutoMapFields();
+
+            // Reset page navigation
+            PreviewPageIndex = 0;
+            PreviewPageCount = 1;
+            HasMultiplePages = false;
         }
         catch (Exception ex)
         {
@@ -178,11 +198,20 @@ public partial class MergeViewModel : ObservableObject
         try
         {
             var fieldValues = BuildFieldValues(_csvRows[rowIndex]);
+
+            // Get page count
+            var pageCount = await _mergeService.GetPreviewPageCountAsync(
+                TemplateFilePath, fieldValues);
+            PreviewPageCount = pageCount;
+            HasMultiplePages = pageCount > 1;
+            PreviewPageIndex = Math.Clamp(PreviewPageIndex, 0, Math.Max(0, pageCount - 1));
+
             var previewBytes = await _mergeService.GeneratePreviewAsync(
-                TemplateFilePath, fieldValues, OutputFormat);
+                TemplateFilePath, fieldValues, OutputFormat, PreviewPageIndex,
+                Annotations.Count > 0 ? Annotations.ToList() : null);
             PreviewImage = previewBytes;
             HasPreview = previewBytes is { Length: > 0 };
-            StatusText = $"Preview generated for row {rowIndex + 1}";
+            StatusText = $"Preview: row {rowIndex + 1}, page {PreviewPageIndex + 1}/{PreviewPageCount}";
         }
         catch (Exception ex)
         {
@@ -194,7 +223,28 @@ public partial class MergeViewModel : ObservableObject
     [RelayCommand]
     private async Task PreviewRow()
     {
+        PreviewPageIndex = 0;
         await Preview();
+    }
+
+    [RelayCommand]
+    private async Task PreviousPage()
+    {
+        if (PreviewPageIndex > 0)
+        {
+            PreviewPageIndex--;
+            await Preview();
+        }
+    }
+
+    [RelayCommand]
+    private async Task NextPage()
+    {
+        if (PreviewPageIndex < PreviewPageCount - 1)
+        {
+            PreviewPageIndex++;
+            await Preview();
+        }
     }
 
     [RelayCommand]
@@ -227,7 +277,9 @@ public partial class MergeViewModel : ObservableObject
             var allFieldValues = _csvRows.Select(BuildFieldValues).ToList();
             var outputFiles = await _mergeService.GenerateBulkAsync(
                 TemplateFilePath, allFieldValues, OutputFormat,
-                OutputDirectory, FileNamePattern, progress);
+                OutputDirectory, FileNamePattern,
+                Annotations.Count > 0 ? Annotations.ToList() : null,
+                progress);
 
             StatusText = $"Generated {outputFiles.Count} documents in {OutputDirectory}";
         }
@@ -253,6 +305,52 @@ public partial class MergeViewModel : ObservableObject
             OutputDirectory = dialog.FolderName;
     }
 
+    [RelayCommand]
+    private void ToggleAnnotationMode()
+    {
+        IsAnnotationMode = !IsAnnotationMode;
+        StatusText = IsAnnotationMode
+            ? "Click on the preview to place a text annotation"
+            : "Annotation mode off";
+    }
+
+    /// <summary>
+    /// Called from code-behind when user clicks on the preview image.
+    /// </summary>
+    public void AddAnnotationAtPosition(double normX, double normY)
+    {
+        var annotation = new MergeAnnotation
+        {
+            NormX = normX,
+            NormY = normY,
+            PageIndex = PreviewPageIndex,
+            Text = "New text",
+            FontSize = 12
+        };
+        Annotations.Add(annotation);
+        SelectedAnnotation = annotation;
+        StatusText = $"Added annotation on page {PreviewPageIndex + 1} at ({normX:F2}, {normY:F2})";
+    }
+
+    [RelayCommand]
+    private void RemoveAnnotation()
+    {
+        if (SelectedAnnotation != null)
+        {
+            Annotations.Remove(SelectedAnnotation);
+            SelectedAnnotation = null;
+            StatusText = "Annotation removed";
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAnnotations()
+    {
+        Annotations.Clear();
+        SelectedAnnotation = null;
+        StatusText = "All annotations cleared";
+    }
+
     private Dictionary<string, string> BuildFieldValues(Dictionary<string, string> csvRow)
     {
         var result = new Dictionary<string, string>();
@@ -268,7 +366,6 @@ public partial class MergeViewModel : ObservableObject
 
     /// <summary>
     /// Load extraction results directly without requiring CSV export/import.
-    /// Converts ExtractionRow data into the same internal format as CSV load.
     /// </summary>
     public void LoadFromExtractionResults(List<ExtractionRow> rows)
     {
@@ -281,7 +378,6 @@ public partial class MergeViewModel : ObservableObject
             return;
         }
 
-        // Collect all unique headers from extraction rows
         var headers = rows
             .SelectMany(r => r.Cells.Keys)
             .Distinct()
@@ -291,7 +387,6 @@ public partial class MergeViewModel : ObservableObject
         foreach (var h in headers)
             CsvHeaders.Add(h);
 
-        // Convert ExtractionRows to Dictionary<string, string> rows
         foreach (var row in rows)
         {
             var csvRow = new Dictionary<string, string>();
@@ -307,7 +402,6 @@ public partial class MergeViewModel : ObservableObject
         TotalRows = _csvRows.Count;
         CsvFilePath = "(extraction results)";
 
-        // Build preview table
         var table = new DataTable();
         foreach (var h in headers)
             table.Columns.Add(h, typeof(string));

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace CaptureFlow.App.Converters;
@@ -48,6 +49,28 @@ public class ByteArrayToImageConverter : IValueConverter
         image.Freeze();
         return image;
     }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public class BoolToAnnotationTextConverter : IValueConverter
+{
+    public static readonly BoolToAnnotationTextConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? "Annotating (click preview)" : "Add Annotation";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is "Annotating (click preview)";
+}
+
+public class BoolToCursorConverter : IValueConverter
+{
+    public static readonly BoolToCursorConverter Instance = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? Cursors.Cross : Cursors.Arrow;
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

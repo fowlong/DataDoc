@@ -98,6 +98,40 @@
                                 Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
                     </Grid>
 
+                    <!-- Step 5: Annotations -->
+                    <TextBlock Text="5. Annotations" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <TextBlock Text="Add text overlays to exported documents"
+                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <ToggleButton Content="{Binding IsAnnotationMode, Converter={x:Static conv:BoolToAnnotationTextConverter.Instance}}"
+                                      IsChecked="{Binding IsAnnotationMode}" Padding="8,3" Margin="0,0,4,0" />
+                        <Button Content="Clear All" Style="{StaticResource ToolBarButton}"
+                                Command="{Binding ClearAnnotationsCommand}" Padding="8,3" />
+                    </StackPanel>
+
+                    <!-- Annotation list -->
+                    <ListBox ItemsSource="{Binding Annotations}" SelectedItem="{Binding SelectedAnnotation}"
+                             MaxHeight="120" Margin="0,0,0,4"
+                             BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="2">
+                                    <TextBlock Text="{Binding PageIndex, StringFormat='P{0}'}"
+                                               FontSize="9" Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                             MinWidth="80" FontSize="11" Padding="2,1" VerticalAlignment="Center" />
+                                    <TextBox Text="{Binding FontSize, UpdateSourceTrigger=PropertyChanged}"
+                                             Width="30" FontSize="9" Padding="2,1" VerticalAlignment="Center"
+                                             Margin="4,0,0,0" ToolTip="Font size" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Content="Remove Selected" Style="{StaticResource ToolBarButton}"
+                            Command="{Binding RemoveAnnotationCommand}" Padding="8,3"
+                            HorizontalAlignment="Left" Margin="0,0,0,8" />
+
                     <!-- Actions -->
                     <Grid Margin="0,4,0,4">
                         <Grid.ColumnDefinitions>
@@ -155,6 +189,8 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
+
+                    <!-- Header with row selector and page navigation -->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -171,19 +207,26 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Field insertion hint -->
-                    <TextBlock Grid.Row="1" Margin="0,4,0,4" FontSize="10" TextWrapping="Wrap"
-                               Foreground="{StaticResource TextSecondaryBrush}">
-                        Use {{FieldName}} placeholders in your template document. Mapped fields will be replaced with CSV/extraction data.
-                    </TextBlock>
+                    <!-- Page navigation -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,4"
+                                Visibility="{Binding HasMultiplePages, Converter={StaticResource BoolToVis}}">
+                        <Button Content="Prev" Style="{StaticResource ToolBarButton}"
+                                Command="{Binding PreviousPageCommand}" Padding="8,3" Margin="0,0,4,0" />
+                        <TextBlock Text="{Binding PreviewPageDisplay}" VerticalAlignment="Center" FontSize="11" Margin="4,0" />
+                        <Button Content="Next" Style="{StaticResource ToolBarButton}"
+                                Command="{Binding NextPageCommand}" Padding="8,3" Margin="4,0,0,0" />
+                    </StackPanel>
 
-                    <!-- Preview image or placeholder -->
+                    <!-- Preview image (click to add annotations) -->
                     <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <Grid>
-                            <Image Source="{Binding PreviewImage, Converter={StaticResource ByteArrayToImage}}"
+                            <Image x:Name="PreviewImage"
+                                   Source="{Binding PreviewImage, Converter={StaticResource ByteArrayToImage}}"
                                    Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                    HorizontalAlignment="Center" VerticalAlignment="Top"
-                                   Visibility="{Binding HasPreview, Converter={StaticResource BoolToVis}}" />
+                                   Visibility="{Binding HasPreview, Converter={StaticResource BoolToVis}}"
+                                   MouseLeftButtonDown="PreviewImage_MouseLeftButtonDown"
+                                   Cursor="{Binding IsAnnotationMode, Converter={x:Static conv:BoolToCursorConverter.Instance}}" />
                             <TextBlock Text="Click 'Preview' to see a merged document preview"
                                        Style="{StaticResource SubHeaderText}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"

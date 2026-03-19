@@ -34,10 +34,21 @@ public sealed class MergeServiceRouter : IMergeService
         string templatePath,
         Dictionary<string, string> fieldValues,
         MergeOutputFormat format,
+        int pageIndex = 0,
+        List<MergeAnnotation>? annotations = null,
         CancellationToken ct = default)
     {
         var service = ResolveService(templatePath);
-        return service.GeneratePreviewAsync(templatePath, fieldValues, format, ct);
+        return service.GeneratePreviewAsync(templatePath, fieldValues, format, pageIndex, annotations, ct);
+    }
+
+    public Task<int> GetPreviewPageCountAsync(
+        string templatePath,
+        Dictionary<string, string> fieldValues,
+        CancellationToken ct = default)
+    {
+        var service = ResolveService(templatePath);
+        return service.GetPreviewPageCountAsync(templatePath, fieldValues, ct);
     }
 
     public Task<List<string>> GenerateBulkAsync(
@@ -46,11 +57,12 @@ public sealed class MergeServiceRouter : IMergeService
         MergeOutputFormat format,
         string outputDirectory,
         string fileNamePattern,
+        List<MergeAnnotation>? annotations = null,
         IProgress<int>? progress = null,
         CancellationToken ct = default)
     {
         var service = ResolveService(templatePath);
-        return service.GenerateBulkAsync(templatePath, rows, format, outputDirectory, fileNamePattern, progress, ct);
+        return service.GenerateBulkAsync(templatePath, rows, format, outputDirectory, fileNamePattern, annotations, progress, ct);
     }
 
     private IMergeService ResolveService(string templatePath)

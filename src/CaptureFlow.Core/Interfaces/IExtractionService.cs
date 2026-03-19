@@ -14,8 +14,9 @@ public interface IExtractionService
 public interface IMergeService
 {
     Task<List<string>> GetTemplatePlaceholdersAsync(string templatePath, CancellationToken ct = default);
-    Task<byte[]> GeneratePreviewAsync(string templatePath, Dictionary<string, string> fieldValues, MergeOutputFormat format, CancellationToken ct = default);
-    Task<List<string>> GenerateBulkAsync(string templatePath, List<Dictionary<string, string>> rows, MergeOutputFormat format, string outputDirectory, string fileNamePattern, IProgress<int>? progress = null, CancellationToken ct = default);
+    Task<byte[]> GeneratePreviewAsync(string templatePath, Dictionary<string, string> fieldValues, MergeOutputFormat format, int pageIndex = 0, List<MergeAnnotation>? annotations = null, CancellationToken ct = default);
+    Task<int> GetPreviewPageCountAsync(string templatePath, Dictionary<string, string> fieldValues, CancellationToken ct = default);
+    Task<List<string>> GenerateBulkAsync(string templatePath, List<Dictionary<string, string>> rows, MergeOutputFormat format, string outputDirectory, string fileNamePattern, List<MergeAnnotation>? annotations = null, IProgress<int>? progress = null, CancellationToken ct = default);
 }
 
 public interface IBatchProcessor
