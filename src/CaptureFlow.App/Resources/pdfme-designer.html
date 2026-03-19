@@ -104,7 +104,7 @@
                     template: template,
                     plugins: plugins,
                     options: {
-                        sidebarOpen: true,
+                        sidebarOpen: false,
                         lang: 'en'
                     }
                 });
@@ -155,8 +155,22 @@
 
                 generatePdf: async function(inputsJson, requestId) {
                     try {
-                        var template = designer.getTemplate();
+                        var template = JSON.parse(JSON.stringify(designer.getTemplate()));
                         var inputs = JSON.parse(inputsJson);
+
+                        // Strip preview-only styling from merge fields for clean output
+                        if (template.schemas) {
+                            template.schemas = template.schemas.map(function(page) {
+                                return page.map(function(schema) {
+                                    if (schema.type === 'text' && schema.backgroundColor === '#dbeafe') {
+                                        schema.backgroundColor = '';
+                                        schema.fontColor = '#000000';
+                                    }
+                                    return schema;
+                                });
+                            });
+                        }
+
                         var pdf = await B.generate({
                             template: template,
                             inputs: Array.isArray(inputs) ? inputs : [inputs],
@@ -186,7 +200,7 @@
                     var field = {
                         name: headerName,
                         type: 'text',
-                        content: '{{' + headerName + '}}',
+                        content: headerName,
                         position: { x: 20, y: 20 + pageSchemas.length * 12 },
                         width: 60,
                         height: 10,
@@ -199,7 +213,6 @@
                         fontColor: '#1e40af',
                         backgroundColor: '#dbeafe',
                         opacity: 1,
-                        readOnly: true,
                         strikethrough: false,
                         underline: false
                     };
@@ -207,15 +220,6 @@
                     template.schemas[0] = pageSchemas;
                     initDesigner(template);
                     postMessage({ type: 'templateChanged', fieldCount: template.schemas.flat().length });
-                },
-
-                getCsvHeaders: function() {
-                    // Returns the currently loaded CSV headers (set from C#)
-                    return JSON.stringify(window._csvHeaders || []);
-                },
-
-                setCsvHeaders: function(headersJson) {
-                    window._csvHeaders = JSON.parse(headersJson);
                 }
             };
 
