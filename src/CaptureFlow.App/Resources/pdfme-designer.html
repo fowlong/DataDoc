@@ -21,8 +21,36 @@
     <!-- Local bundle — no internet required -->
     <script src="pdfme-bundle.js"></script>
     <script>
+        // Global error handler to catch any uncaught errors (including async)
+        window.onerror = function(msg, src, line, col, err) {
+            var detail = msg + ' at ' + (src || '?') + ':' + line + ':' + col;
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'JS Error: ' + detail }));
+            }
+            var el = document.getElementById('error');
+            if (el) { el.style.display = 'block'; el.textContent = detail; }
+        };
+        window.onunhandledrejection = function(ev) {
+            var msg = ev.reason ? (ev.reason.message || String(ev.reason)) : 'Unknown promise rejection';
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'Promise Error: ' + msg }));
+            }
+            var el = document.getElementById('error');
+            if (el) { el.style.display = 'block'; el.textContent = msg; }
+        };
+
         (function() {
-            const B = window.PdfmeBundle;
+            var B = window.PdfmeBundle;
+            if (!B) {
+                var el = document.getElementById('error');
+                el.style.display = 'block';
+                el.textContent = 'Failed to load pdfme-bundle.js — PdfmeBundle is undefined';
+                document.getElementById('loading').classList.add('hidden');
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'PdfmeBundle is undefined. The bundle JS file may not have loaded.' }));
+                }
+                return;
+            }
             let designer = null;
             const plugins = {
                 text: B.text,
