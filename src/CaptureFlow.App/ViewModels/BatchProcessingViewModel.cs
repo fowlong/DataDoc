@@ -187,7 +187,7 @@ public partial class BatchProcessingViewModel : ObservableObject
         {
             var dr = table.NewRow();
             dr["_SourceFile"] = row.SourceFileName;
-            dr["_Page"] = row.SourcePageIndex?.ToString() ?? "";
+            dr["_Page"] = row.SourcePageIndex.HasValue ? (row.SourcePageIndex.Value + 1).ToString() : "";
             foreach (var h in headers)
                 dr[h] = row.Cells.GetValueOrDefault(h)?.DisplayValue ?? "";
             table.Rows.Add(dr);

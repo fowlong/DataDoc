@@ -79,12 +79,7 @@
             if (B.rectangle) plugins.Rectangle = B.rectangle;
             if (B.ellipse) plugins.Ellipse = B.ellipse;
 
-            if (B.barcodes) {
-                Object.entries(B.barcodes).forEach(function(entry) {
-                    var key = entry[0], val = entry[1];
-                    if (val && typeof val === 'object') plugins[key] = val;
-                });
-            }
+            // Barcodes/QR codes removed — users insert these as images
 
             function arrayBufferToBase64(buffer) {
                 var bytes = new Uint8Array(buffer);
@@ -178,6 +173,39 @@
                     if (!designer) return 1;
                     var template = designer.getTemplate();
                     return template.schemas ? template.schemas.length : 1;
+                },
+
+                insertMergeField: function(headerName) {
+                    if (!designer) return;
+                    var template = designer.getTemplate();
+                    if (!template.schemas || template.schemas.length === 0) {
+                        template.schemas = [[]];
+                    }
+                    // Insert on the first page
+                    var pageSchemas = template.schemas[0];
+                    var field = {
+                        name: headerName,
+                        type: 'text',
+                        position: { x: 20, y: 20 + pageSchemas.length * 12 },
+                        width: 60,
+                        height: 10,
+                        fontSize: 11,
+                        content: '{{' + headerName + '}}',
+                        readOnly: true
+                    };
+                    pageSchemas.push(field);
+                    template.schemas[0] = pageSchemas;
+                    initDesigner(template);
+                    postMessage({ type: 'templateChanged', fieldCount: template.schemas.flat().length });
+                },
+
+                getCsvHeaders: function() {
+                    // Returns the currently loaded CSV headers (set from C#)
+                    return JSON.stringify(window._csvHeaders || []);
+                },
+
+                setCsvHeaders: function(headersJson) {
+                    window._csvHeaders = JSON.parse(headersJson);
                 }
             };
 

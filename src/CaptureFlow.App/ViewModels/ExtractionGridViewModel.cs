@@ -107,7 +107,7 @@ public partial class ExtractionGridViewModel : ObservableObject
             {
                 var dataRow = table.NewRow();
                 if (hasSourceFile) dataRow["_SourceFile"] = row.SourceFileName;
-                if (hasSourcePage) dataRow["_Page"] = row.SourcePageIndex?.ToString() ?? "";
+                if (hasSourcePage) dataRow["_Page"] = row.SourcePageIndex.HasValue ? (row.SourcePageIndex.Value + 1).ToString() : "";
 
                 foreach (var header in groupHeaders)
                 {

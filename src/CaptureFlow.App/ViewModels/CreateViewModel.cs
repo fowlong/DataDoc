@@ -23,6 +23,7 @@ public interface IDesignerBridge
     Task SetTemplateJsonAsync(string json);
     Task<List<string>> GetFieldNamesAsync();
     Task<byte[]> GenerateSinglePdfAsync(string inputsJson);
+    Task InsertMergeFieldAsync(string headerName);
     bool IsReady { get; }
     event Action? OnReady;
     event Action<int, int>? OnGenerationProgress;
@@ -47,6 +48,10 @@ public partial class CreateViewModel : ObservableObject
     [ObservableProperty] private bool _isDesignerReady;
     [ObservableProperty] private int _fieldCount;
     [ObservableProperty] private string _templateFilePath = "";
+    [ObservableProperty] private string? _selectedMergeHeader;
+    [ObservableProperty] private bool _useAllRows = true;
+    [ObservableProperty] private bool _useSpecificRows;
+    [ObservableProperty] private string _rowSelectionPattern = "";
 
     public ObservableCollection<string> CsvHeaders { get; } = [];
 
@@ -323,10 +328,29 @@ public partial class CreateViewModel : ObservableObject
         try
         {
             var fieldNames = await _designerBridge.GetFieldNamesAsync();
-            _logger.LogInformation("Generating {Count} PDFs with {FieldCount} fields",
-                _csvRows.Count, fieldNames.Count);
 
-            for (int i = 0; i < _csvRows.Count; i++)
+            // Determine which rows to process
+            List<int> rowIndices;
+            if (UseSpecificRows && !string.IsNullOrWhiteSpace(RowSelectionPattern))
+            {
+                var selected = ParseRowSelection(RowSelectionPattern, _csvRows.Count);
+                rowIndices = selected.OrderBy(x => x).ToList();
+                if (rowIndices.Count == 0)
+                {
+                    StatusText = "No valid rows matched the selection pattern";
+                    return;
+                }
+            }
+            else
+            {
+                rowIndices = Enumerable.Range(0, _csvRows.Count).ToList();
+            }
+
+            _logger.LogInformation("Generating {Count} PDFs with {FieldCount} fields",
+                rowIndices.Count, fieldNames.Count);
+
+            int generated = 0;
+            foreach (var i in rowIndices)
             {
                 var row = _csvRows[i];
 
@@ -349,12 +373,13 @@ public partial class CreateViewModel : ObservableObject
 
                 await File.WriteAllBytesAsync(outputPath, pdfBytes);
 
-                ProcessedRows = i + 1;
-                Progress = (double)(i + 1) / _csvRows.Count * 100;
-                StatusText = $"Generated {i + 1} of {_csvRows.Count} documents...";
+                generated++;
+                ProcessedRows = generated;
+                Progress = (double)generated / rowIndices.Count * 100;
+                StatusText = $"Generated {generated} of {rowIndices.Count} documents...";
             }
 
-            StatusText = $"Generated {_csvRows.Count} documents in {OutputDirectory}";
+            StatusText = $"Generated {rowIndices.Count} documents in {OutputDirectory}";
         }
         catch (Exception ex)
         {
@@ -417,9 +442,57 @@ public partial class CreateViewModel : ObservableObject
         StatusText = $"Loaded {_csvRows.Count} rows from extraction results";
     }
 
+    [RelayCommand]
+    private async Task InsertMergeField()
+    {
+        if (_designerBridge == null || !_designerBridge.IsReady)
+        {
+            StatusText = "Designer not ready";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SelectedMergeHeader))
+        {
+            StatusText = "Select a CSV header first";
+            return;
+        }
+
+        await _designerBridge.InsertMergeFieldAsync(SelectedMergeHeader);
+        StatusText = $"Inserted merge field: {SelectedMergeHeader}";
+    }
+
     public void UpdateFieldCount(int count)
     {
         FieldCount = count;
+    }
+
+    /// <summary>
+    /// Parse row selection pattern like "1,3-5,8" into a set of 0-based row indices.
+    /// Input uses 1-based numbering (user-facing).
+    /// </summary>
+    internal HashSet<int> ParseRowSelection(string pattern, int totalRows)
+    {
+        var result = new HashSet<int>();
+        if (string.IsNullOrWhiteSpace(pattern)) return result;
+
+        foreach (var part in pattern.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (part.Contains('-'))
+            {
+                var range = part.Split('-', 2);
+                if (int.TryParse(range[0].Trim(), out var start) && int.TryParse(range[1].Trim(), out var end))
+                {
+                    for (int i = Math.Max(1, start); i <= Math.Min(totalRows, end); i++)
+                        result.Add(i - 1); // Convert to 0-based
+                }
+            }
+            else if (int.TryParse(part, out var num) && num >= 1 && num <= totalRows)
+            {
+                result.Add(num - 1); // Convert to 0-based
+            }
+        }
+
+        return result;
     }
 
     private static string ResolveFileNamePattern(string pattern, Dictionary<string, string> fieldValues, int rowNumber)

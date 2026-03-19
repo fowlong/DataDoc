@@ -234,6 +234,14 @@ public partial class CreatePanel : UserControl, IDesignerBridge
         return JsonSerializer.Deserialize<List<string>>(jsonString) ?? [];
     }
 
+    public async Task InsertMergeFieldAsync(string headerName)
+    {
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+        var escaped = EscapeForJs(headerName);
+        await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
+            $"window.pdfmeApi.insertMergeField('{escaped}')");
+    }
+
     public async Task<byte[]> GenerateSinglePdfAsync(string inputsJson)
     {
         await WaitForReadyAsync(TimeSpan.FromSeconds(30));
