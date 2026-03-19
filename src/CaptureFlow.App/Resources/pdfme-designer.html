@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaptureFlow Document Designer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        #designer-container { width: 100%; height: 100%; }
+        #loading { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #64748b; font-size: 14px; }
+        #loading.hidden { display: none; }
+        #error { display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; margin: 20px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading document designer...</div>
+    <div id="error"></div>
+    <div id="designer-container"></div>
+
+    <script type="module">
+        const CDN = 'https://esm.sh';
+        const VER = '5.5.9';
+
+        let Designer, generate, BLANK_PDF, text, image, barcodes, table, line, rectangle, ellipse;
+        let designer = null;
+        let plugins = {};
+
+        function showError(msg) {
+            document.getElementById('loading').classList.add('hidden');
+            const el = document.getElementById('error');
+            el.style.display = 'block';
+            el.textContent = 'Designer load error: ' + msg;
+            postMessage({ type: 'error', message: msg });
+        }
+
+        function postMessage(data) {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(JSON.stringify(data));
+            }
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.subarray(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            return btoa(binary);
+        }
+
+        function base64ToUint8Array(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        async function loadModules() {
+            try {
+                const [uiMod, genMod, commonMod, schemasMod] = await Promise.all([
+                    import(`${CDN}/@pdfme/ui@${VER}`),
+                    import(`${CDN}/@pdfme/generator@${VER}`),
+                    import(`${CDN}/@pdfme/common@${VER}`),
+                    import(`${CDN}/@pdfme/schemas@${VER}`)
+                ]);
+
+                Designer = uiMod.Designer;
+                generate = genMod.generate;
+                BLANK_PDF = commonMod.BLANK_PDF;
+                text = schemasMod.text;
+                image = schemasMod.image;
+                barcodes = schemasMod.barcodes;
+                table = schemasMod.table;
+                line = schemasMod.line;
+                rectangle = schemasMod.rectangle;
+                ellipse = schemasMod.ellipse;
+
+                plugins = { text, image, Table: table, Line: line, Rectangle: rectangle, Ellipse: ellipse };
+
+                // Add barcode types
+                if (barcodes) {
+                    Object.entries(barcodes).forEach(([key, val]) => {
+                        if (val && typeof val === 'object') plugins[key] = val;
+                    });
+                }
+
+                return true;
+            } catch (err) {
+                showError(err.message);
+                return false;
+            }
+        }
+
+        function initDesigner(template) {
+            const domContainer = document.getElementById('designer-container');
+            if (designer) {
+                try { designer.destroy(); } catch(e) {}
+            }
+            domContainer.innerHTML = '';
+
+            designer = new Designer({
+                domContainer,
+                template: template,
+                plugins,
+                options: {
+                    sidebarOpen: true,
+                    lang: 'en'
+                }
+            });
+
+            designer.onChangeTemplate((t) => {
+                const fieldCount = t.schemas ? t.schemas.flat().length : 0;
+                postMessage({ type: 'templateChanged', fieldCount });
+            });
+        }
+
+        // ---- API callable from C# via ExecuteScriptAsync ----
+        window.pdfmeApi = {
+            loadBasePdf: (base64Pdf) => {
+                try {
+                    const template = designer ? designer.getTemplate() : { basePdf: BLANK_PDF, schemas: [[]] };
+                    template.basePdf = base64Pdf;
+                    initDesigner(template);
+                    postMessage({ type: 'basePdfLoaded' });
+                } catch (err) {
+                    postMessage({ type: 'error', message: 'Failed to load base PDF: ' + err.message });
+                }
+            },
+
+            getTemplate: () => {
+                if (!designer) return JSON.stringify({ basePdf: BLANK_PDF, schemas: [[]] });
+                return JSON.stringify(designer.getTemplate());
+            },
+
+            setTemplate: (templateJson) => {
+                try {
+                    const template = JSON.parse(templateJson);
+                    initDesigner(template);
+                    postMessage({ type: 'templateLoaded' });
+                } catch (err) {
+                    postMessage({ type: 'error', message: 'Failed to load template: ' + err.message });
+                }
+            },
+
+            getFieldNames: () => {
+                if (!designer) return '[]';
+                const template = designer.getTemplate();
+                const names = template.schemas.flat().map(s => s.name);
+                return JSON.stringify([...new Set(names)]);
+            },
+
+            generatePdf: async (inputsJson, requestId) => {
+                try {
+                    const template = designer.getTemplate();
+                    const inputs = JSON.parse(inputsJson);
+                    const pdf = await generate({
+                        template,
+                        inputs: Array.isArray(inputs) ? inputs : [inputs],
+                        plugins
+                    });
+                    const base64 = arrayBufferToBase64(pdf);
+                    postMessage({ type: 'generateResult', requestId, data: base64 });
+                } catch (err) {
+                    postMessage({ type: 'generateError', requestId, error: err.message });
+                }
+            },
+
+            getPageCount: () => {
+                if (!designer) return 1;
+                const template = designer.getTemplate();
+                return template.schemas ? template.schemas.length : 1;
+            }
+        };
+
+        // ---- Initialize ----
+        async function main() {
+            const loaded = await loadModules();
+            if (!loaded) return;
+
+            document.getElementById('loading').classList.add('hidden');
+
+            const defaultTemplate = {
+                basePdf: BLANK_PDF,
+                schemas: [[]]
+            };
+
+            initDesigner(defaultTemplate);
+            postMessage({ type: 'ready' });
+        }
+
+        main();
+    </script>
+</body>
+</html>

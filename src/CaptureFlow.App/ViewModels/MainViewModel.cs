@@ -41,7 +41,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private DocumentPreviewViewModel _preview;
     [ObservableProperty] private ExtractionGridViewModel _extractionGrid;
     [ObservableProperty] private BatchProcessingViewModel _batch;
-    [ObservableProperty] private MergeViewModel _merge;
+    [ObservableProperty] private CreateViewModel _create;
     [ObservableProperty] private TemplateManagerViewModel _templateManager;
 
     public ObservableCollection<SourceDocument> LoadedDocuments { get; } = [];
@@ -53,7 +53,7 @@ public partial class MainViewModel : ObservableObject
     // Per-document capture boxes: each doc has its own overlay
     private readonly Dictionary<string, List<CaptureBox>> _documentCaptureBoxes = new();
 
-    // Persisted extraction results available to merge tab
+    // Persisted extraction results available to create tab
     private List<ExtractionRow> _lastExtractionRows = [];
     public bool HasExtractionResults => _lastExtractionRows.Count > 0;
 
@@ -73,7 +73,7 @@ public partial class MainViewModel : ObservableObject
         DocumentPreviewViewModel preview,
         ExtractionGridViewModel extractionGrid,
         BatchProcessingViewModel batch,
-        MergeViewModel merge,
+        CreateViewModel create,
         TemplateManagerViewModel templateManager,
         ILogger<MainViewModel> logger)
     {
@@ -87,7 +87,7 @@ public partial class MainViewModel : ObservableObject
         _preview = preview;
         _extractionGrid = extractionGrid;
         _batch = batch;
-        _merge = merge;
+        _create = create;
         _templateManager = templateManager;
 
         preview.BoxSelected += box => SelectedCaptureBox = box;
@@ -535,7 +535,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ManageTemplates()
     {
-        SelectedTabIndex = 2; // Extract=0, Merge=1, Templates=2
+        SelectedTabIndex = 2; // Extract=0, Create=1, Templates=2
     }
 
     [RelayCommand]
@@ -557,13 +557,13 @@ public partial class MainViewModel : ObservableObject
     private void ExportTemplate() { }
 
     [RelayCommand]
-    private void OpenMergeView()
+    private void OpenCreateView()
     {
-        SelectedTabIndex = 1; // Extract=0, Merge=1, Templates=2
+        SelectedTabIndex = 1; // Extract=0, Create=1, Templates=2
     }
 
     [RelayCommand]
-    private void UseExtractionResultsInMerge()
+    private void UseExtractionResultsInCreate()
     {
         if (_lastExtractionRows.Count == 0)
         {
@@ -571,9 +571,9 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        Merge.LoadFromExtractionResults(_lastExtractionRows);
+        Create.LoadFromExtractionResults(_lastExtractionRows);
         SelectedTabIndex = 1;
-        StatusMessage = $"Loaded {_lastExtractionRows.Count} extraction rows into merge";
+        StatusMessage = $"Loaded {_lastExtractionRows.Count} extraction rows into create";
     }
 
     [RelayCommand]
@@ -603,7 +603,7 @@ public partial class MainViewModel : ObservableObject
     private void About()
     {
         MessageBox.Show(
-            "CaptureFlow CSV v1.0\n\nDocument to CSV extraction and CSV to document merge generation.",
+            "CaptureFlow CSV v1.0\n\nDocument to CSV extraction and PDF document creation.",
             "About CaptureFlow CSV",
             MessageBoxButton.OK, MessageBoxImage.Information);
     }

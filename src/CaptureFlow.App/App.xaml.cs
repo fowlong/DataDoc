@@ -1,6 +1,7 @@
 using System.Windows;
 using CaptureFlow.App.ViewModels;
 using CaptureFlow.Core.Interfaces;
+using CaptureFlow.Core.Services;
 using CaptureFlow.Core.Services.Adapters;
 using CaptureFlow.Core.Services.Extraction;
 using CaptureFlow.Core.Services.Merge;
@@ -49,8 +50,9 @@ public partial class App : Application
         services.AddSingleton<IExtractionService, ExtractionService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();
         services.AddSingleton<CsvExportService>();
+        services.AddSingleton<DocxToPdfConverter>();
 
-        // Merge services
+        // Merge services (kept for programmatic merge support)
         services.AddSingleton<DocxMergeService>();
         services.AddSingleton<PdfMergeService>();
         services.AddSingleton<IMergeService, MergeServiceRouter>();
@@ -65,7 +67,7 @@ public partial class App : Application
         services.AddTransient<CaptureBoxViewModel>();
         services.AddTransient<ExtractionGridViewModel>();
         services.AddTransient<BatchProcessingViewModel>();
-        services.AddTransient<MergeViewModel>();
+        services.AddTransient<CreateViewModel>();
         services.AddTransient<TemplateManagerViewModel>();
     }
 }
