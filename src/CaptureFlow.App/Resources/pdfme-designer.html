@@ -22,7 +22,7 @@
         const CDN = 'https://esm.sh';
         const VER = '5.5.9';
 
-        let Designer, generate, BLANK_PDF, text, image, barcodes, table, line, rectangle, ellipse;
+        let Designer, generate, BLANK_PDF, text, image, barcodes, table, line, rectangle, ellipse, multiVariableText, svg;
         let designer = null;
         let plugins = {};
 
@@ -79,8 +79,10 @@
                 line = schemasMod.line;
                 rectangle = schemasMod.rectangle;
                 ellipse = schemasMod.ellipse;
+                multiVariableText = schemasMod.multiVariableText;
+                svg = schemasMod.svg;
 
-                plugins = { text, image, Table: table, Line: line, Rectangle: rectangle, Ellipse: ellipse };
+                plugins = { text, multiVariableText, image, svg, Table: table, Line: line, Rectangle: rectangle, Ellipse: ellipse };
 
                 // Add barcode types
                 if (barcodes) {
@@ -124,6 +126,10 @@
             loadBasePdf: (base64Pdf) => {
                 try {
                     const template = designer ? designer.getTemplate() : { basePdf: BLANK_PDF, schemas: [[]] };
+                    // Use data URI format for proper PDF loading
+                    if (!base64Pdf.startsWith('data:')) {
+                        base64Pdf = 'data:application/pdf;base64,' + base64Pdf;
+                    }
                     template.basePdf = base64Pdf;
                     initDesigner(template);
                     postMessage({ type: 'basePdfLoaded' });
