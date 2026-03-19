@@ -159,12 +159,13 @@
                         var inputs = JSON.parse(inputsJson);
 
                         // Strip preview-only styling from merge fields for clean output
+                        // Restore the user's chosen output font colour from _outputFontColor
                         if (template.schemas) {
                             template.schemas = template.schemas.map(function(page) {
                                 return page.map(function(schema) {
                                     if (schema.type === 'text' && schema.backgroundColor === '#dbeafe') {
                                         schema.backgroundColor = '';
-                                        schema.fontColor = '#000000';
+                                        schema.fontColor = schema._outputFontColor || '#000000';
                                     }
                                     return schema;
                                 });
@@ -189,8 +190,9 @@
                     return template.schemas ? template.schemas.length : 1;
                 },
 
-                insertMergeField: function(headerName) {
+                insertMergeField: function(headerName, optionsJson) {
                     if (!designer) return;
+                    var opts = optionsJson ? JSON.parse(optionsJson) : {};
                     var template = designer.getTemplate();
                     if (!template.schemas || template.schemas.length === 0) {
                         template.schemas = [[]];
@@ -205,16 +207,19 @@
                         width: 60,
                         height: 10,
                         rotate: 0,
-                        alignment: 'left',
+                        alignment: opts.alignment || 'left',
                         verticalAlignment: 'top',
-                        fontSize: 11,
+                        fontSize: opts.fontSize || 11,
                         lineHeight: 1,
                         characterSpacing: 0,
                         fontColor: '#1e40af',
                         backgroundColor: '#dbeafe',
+                        // Store the actual output colour as a custom property
+                        // Survives in the template JSON and is used at generation time
+                        _outputFontColor: opts.fontColor || '#000000',
                         opacity: 1,
-                        strikethrough: false,
-                        underline: false
+                        strikethrough: opts.strikethrough || false,
+                        underline: opts.underline || false
                     };
                     pageSchemas.push(field);
                     template.schemas[0] = pageSchemas;

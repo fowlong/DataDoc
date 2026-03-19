@@ -133,12 +133,80 @@
 
         <!-- Right: Merge Fields Panel -->
         <Border Grid.Column="2" Style="{StaticResource PanelBorder}" Margin="0,4,4,4"
-                Width="200"
+                Width="210"
                 Visibility="{Binding HasCsvHeaders, Converter={StaticResource BoolToVis}}">
             <DockPanel Margin="8">
                 <TextBlock DockPanel.Dock="Top" Text="Merge Fields" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" Text="Click Insert to place on document"
                            FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+                <!-- Output Format Options -->
+                <Border DockPanel.Dock="Top" Background="{StaticResource PanelBackgroundBrush}"
+                        CornerRadius="4" Padding="6" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Output Format" FontWeight="SemiBold" FontSize="10" Margin="0,0,0,4" />
+
+                        <!-- Font Size -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Size" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding MergeFieldFontSize, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="3,2" FontSize="10" />
+                        </Grid>
+
+                        <!-- Font Colour -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Colour" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding MergeFieldFontColor, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="3,2" FontSize="10"
+                                     ToolTip="Hex colour for output text, e.g. #000000" />
+                        </Grid>
+
+                        <!-- Alignment -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Align" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <ComboBox Grid.Column="1"
+                                      SelectedValue="{Binding MergeFieldAlignment}"
+                                      Padding="3,2" FontSize="10">
+                                <ComboBoxItem Content="left" IsSelected="True" />
+                                <ComboBoxItem Content="center" />
+                                <ComboBoxItem Content="right" />
+                            </ComboBox>
+                        </Grid>
+
+                        <!-- Style toggles -->
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <CheckBox FontSize="10"
+                                      IsChecked="{Binding MergeFieldUnderline}"
+                                      ToolTip="Underline" Margin="0,0,10,0">
+                                <TextBlock Text="U" TextDecorations="Underline" />
+                            </CheckBox>
+                            <CheckBox FontSize="10"
+                                      IsChecked="{Binding MergeFieldStrikethrough}"
+                                      ToolTip="Strikethrough">
+                                <TextBlock Text="S" TextDecorations="Strikethrough" />
+                            </CheckBox>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Field List with Insert buttons -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding CsvHeaders}">
                         <ItemsControl.ItemTemplate>

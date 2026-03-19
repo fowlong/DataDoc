@@ -23,7 +23,7 @@ public interface IDesignerBridge
     Task SetTemplateJsonAsync(string json);
     Task<List<string>> GetFieldNamesAsync();
     Task<byte[]> GenerateSinglePdfAsync(string inputsJson);
-    Task InsertMergeFieldAsync(string headerName);
+    Task InsertMergeFieldAsync(string headerName, string optionsJson);
     bool IsReady { get; }
     event Action? OnReady;
     event Action<int, int>? OnGenerationProgress;
@@ -52,6 +52,13 @@ public partial class CreateViewModel : ObservableObject
     [ObservableProperty] private bool _useSpecificRows;
     [ObservableProperty] private string _rowSelectionPattern = "";
     [ObservableProperty] private bool _hasCsvHeaders;
+
+    // Merge field format options (applied on insert, used for output)
+    [ObservableProperty] private double _mergeFieldFontSize = 11;
+    [ObservableProperty] private string _mergeFieldFontColor = "#000000";
+    [ObservableProperty] private string _mergeFieldAlignment = "left";
+    [ObservableProperty] private bool _mergeFieldUnderline;
+    [ObservableProperty] private bool _mergeFieldStrikethrough;
 
     public ObservableCollection<string> CsvHeaders { get; } = [];
 
@@ -466,8 +473,26 @@ public partial class CreateViewModel : ObservableObject
             return;
         }
 
-        await _designerBridge.InsertMergeFieldAsync(headerName);
+        var options = new MergeFieldOptions
+        {
+            FontSize = MergeFieldFontSize,
+            FontColor = MergeFieldFontColor,
+            Alignment = MergeFieldAlignment,
+            Underline = MergeFieldUnderline,
+            Strikethrough = MergeFieldStrikethrough
+        };
+        var optionsJson = JsonSerializer.Serialize(options, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        await _designerBridge.InsertMergeFieldAsync(headerName, optionsJson);
         StatusText = $"Inserted merge field: {headerName}";
+    }
+
+    public class MergeFieldOptions
+    {
+        public double FontSize { get; set; } = 11;
+        public string FontColor { get; set; } = "#000000";
+        public string Alignment { get; set; } = "left";
+        public bool Underline { get; set; }
+        public bool Strikethrough { get; set; }
     }
 
     public void UpdateFieldCount(int count)
