@@ -1,10 +1,12 @@
 using System.Text.RegularExpressions;
 using CaptureFlow.Core.Interfaces;
 using CaptureFlow.Core.Models;
+using CaptureFlow.Core.Services.Adapters;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace CaptureFlow.Core.Services.Merge;
 
@@ -14,10 +16,12 @@ public sealed class DocxMergeService : IMergeService
         @"\{\{(\w+)\}\}",
         RegexOptions.Compiled);
 
+    private readonly DocumentAdapterFactory _adapterFactory;
     private readonly ILogger<DocxMergeService> _logger;
 
-    public DocxMergeService(ILogger<DocxMergeService> logger)
+    public DocxMergeService(DocumentAdapterFactory adapterFactory, ILogger<DocxMergeService> logger)
     {
+        _adapterFactory = adapterFactory;
         _logger = logger;
     }
 
@@ -38,14 +42,12 @@ public sealed class DocxMergeService : IMergeService
             ScanElementForPlaceholders(mainPart.Document.Body, placeholders);
         }
 
-        // Scan headers
         foreach (var headerPart in mainPart?.HeaderParts ?? Enumerable.Empty<HeaderPart>())
         {
             if (headerPart.Header is not null)
                 ScanElementForPlaceholders(headerPart.Header, placeholders);
         }
 
-        // Scan footers
         foreach (var footerPart in mainPart?.FooterParts ?? Enumerable.Empty<FooterPart>())
         {
             if (footerPart.Footer is not null)
@@ -59,10 +61,12 @@ public sealed class DocxMergeService : IMergeService
         return Task.FromResult(placeholders.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList());
     }
 
-    public Task<byte[]> GeneratePreviewAsync(
+    public async Task<byte[]> GeneratePreviewAsync(
         string templatePath,
         Dictionary<string, string> fieldValues,
         MergeOutputFormat format,
+        int pageIndex = 0,
+        List<MergeAnnotation>? annotations = null,
         CancellationToken ct = default)
     {
         if (!File.Exists(templatePath))
@@ -71,11 +75,61 @@ public sealed class DocxMergeService : IMergeService
         ct.ThrowIfCancellationRequested();
 
         var templateBytes = File.ReadAllBytes(templatePath);
-        var outputBytes = MergeDocument(templateBytes, fieldValues, ct);
+        var mergedBytes = MergeDocument(templateBytes, fieldValues, ct);
 
-        _logger.LogInformation("Generated preview for template {TemplatePath}.", templatePath);
+        // Save merged DOCX to temp file, render to PNG via adapter
+        var tempPath = Path.Combine(Path.GetTempPath(), $"merge_preview_{Guid.NewGuid()}.docx");
+        try
+        {
+            await File.WriteAllBytesAsync(tempPath, mergedBytes, ct);
 
-        return Task.FromResult(outputBytes);
+            var adapter = _adapterFactory.GetAdapter(tempPath);
+            if (adapter == null)
+                throw new InvalidOperationException("No adapter found for DOCX rendering.");
+
+            var doc = await adapter.LoadAsync(tempPath, ct);
+            pageIndex = Math.Clamp(pageIndex, 0, Math.Max(0, doc.Pages.Count - 1));
+
+            var pngBytes = await adapter.RenderPageAsync(doc, pageIndex, 800, ct);
+
+            // Draw annotations on the PNG if any exist for this page
+            if (annotations?.Count > 0)
+                pngBytes = ApplyAnnotationsToImage(pngBytes, annotations, pageIndex);
+
+            _logger.LogInformation("Generated DOCX preview for page {PageIndex}.", pageIndex);
+            return pngBytes;
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+        }
+    }
+
+    public async Task<int> GetPreviewPageCountAsync(
+        string templatePath,
+        Dictionary<string, string> fieldValues,
+        CancellationToken ct = default)
+    {
+        if (!File.Exists(templatePath))
+            throw new FileNotFoundException("Template file not found.", templatePath);
+
+        var templateBytes = File.ReadAllBytes(templatePath);
+        var mergedBytes = MergeDocument(templateBytes, fieldValues, ct);
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"merge_pagecount_{Guid.NewGuid()}.docx");
+        try
+        {
+            await File.WriteAllBytesAsync(tempPath, mergedBytes, ct);
+            var adapter = _adapterFactory.GetAdapter(tempPath);
+            if (adapter == null) return 1;
+
+            var doc = await adapter.LoadAsync(tempPath, ct);
+            return doc.Pages.Count;
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+        }
     }
 
     public Task<List<string>> GenerateBulkAsync(
@@ -84,6 +138,7 @@ public sealed class DocxMergeService : IMergeService
         MergeOutputFormat format,
         string outputDirectory,
         string fileNamePattern,
+        List<MergeAnnotation>? annotations = null,
         IProgress<int>? progress = null,
         CancellationToken ct = default)
     {
@@ -103,15 +158,16 @@ public sealed class DocxMergeService : IMergeService
             var row = rows[i];
             var outputBytes = MergeDocument(templateBytes, row, ct);
 
+            // Apply annotations to the DOCX if any
+            if (annotations?.Count > 0)
+                outputBytes = ApplyAnnotationsToDocx(outputBytes, annotations);
+
             var fileName = ResolveFileNamePattern(fileNamePattern, row, i + 1);
 
-            // Ensure correct extension
             if (!fileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
                 fileName += ".docx";
 
             var outputPath = Path.Combine(outputDirectory, fileName);
-
-            // Ensure we don't overwrite by appending a suffix if needed
             outputPath = GetUniqueFilePath(outputPath);
 
             File.WriteAllBytes(outputPath, outputBytes);
@@ -148,7 +204,6 @@ public sealed class DocxMergeService : IMergeService
             ReplacePlaceholdersInElement(mainPart.Document.Body, fieldValues);
         }
 
-        // Replace in headers
         foreach (var headerPart in mainPart?.HeaderParts ?? Enumerable.Empty<HeaderPart>())
         {
             if (headerPart.Header is not null)
@@ -158,7 +213,6 @@ public sealed class DocxMergeService : IMergeService
             }
         }
 
-        // Replace in footers
         foreach (var footerPart in mainPart?.FooterParts ?? Enumerable.Empty<FooterPart>())
         {
             if (footerPart.Footer is not null)
@@ -174,10 +228,114 @@ public sealed class DocxMergeService : IMergeService
         return memoryStream.ToArray();
     }
 
+    private static byte[] ApplyAnnotationsToDocx(byte[] docxBytes, List<MergeAnnotation> annotations)
+    {
+        using var ms = new MemoryStream();
+        ms.Write(docxBytes, 0, docxBytes.Length);
+        ms.Position = 0;
+
+        using var document = WordprocessingDocument.Open(ms, true);
+        var mainPart = document.MainDocumentPart;
+        var body = mainPart?.Document?.Body;
+        if (body == null) return docxBytes;
+
+        // Add annotations as paragraphs with positioning information
+        // Group by page for organization
+        var pageGroups = annotations
+            .Where(a => !string.IsNullOrWhiteSpace(a.Text))
+            .GroupBy(a => a.PageIndex)
+            .OrderBy(g => g.Key);
+
+        foreach (var group in pageGroups)
+        {
+            foreach (var annotation in group)
+            {
+                // Add annotation text as a paragraph with a visual indicator
+                var run = new Run(
+                    new RunProperties(
+                        new Color { Val = "2563EB" },
+                        new FontSize { Val = ((int)(annotation.FontSize * 2)).ToString() }
+                    ),
+                    new Text(annotation.Text) { Space = SpaceProcessingModeValues.Preserve }
+                );
+
+                var paragraph = new Paragraph(
+                    new ParagraphProperties(
+                        new ParagraphBorders(
+                            new LeftBorder
+                            {
+                                Val = BorderValues.Single,
+                                Color = "2563EB",
+                                Size = 4,
+                                Space = 4
+                            }
+                        )
+                    ),
+                    run
+                );
+
+                body.AppendChild(paragraph);
+            }
+        }
+
+        mainPart?.Document?.Save();
+        document.Dispose();
+
+        return ms.ToArray();
+    }
+
+    internal static byte[] ApplyAnnotationsToImage(byte[] pngBytes, List<MergeAnnotation> annotations, int pageIndex)
+    {
+        var pageAnnotations = annotations
+            .Where(a => a.PageIndex == pageIndex && !string.IsNullOrWhiteSpace(a.Text))
+            .ToList();
+
+        if (pageAnnotations.Count == 0)
+            return pngBytes;
+
+        using var bitmap = SKBitmap.Decode(pngBytes);
+        if (bitmap == null) return pngBytes;
+
+        using var surface = SKSurface.Create(new SKImageInfo(bitmap.Width, bitmap.Height));
+        var canvas = surface.Canvas;
+        canvas.DrawBitmap(bitmap, 0, 0);
+
+        using var textPaint = new SKPaint
+        {
+            Color = new SKColor(37, 99, 235), // Blue
+            IsAntialias = true,
+            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Normal)
+        };
+
+        using var bgPaint = new SKPaint
+        {
+            Color = new SKColor(255, 255, 255, 200),
+            Style = SKPaintStyle.Fill
+        };
+
+        foreach (var annotation in pageAnnotations)
+        {
+            float x = (float)(annotation.NormX * bitmap.Width);
+            float y = (float)(annotation.NormY * bitmap.Height);
+            textPaint.TextSize = (float)annotation.FontSize * (bitmap.Width / 800f);
+
+            var textBounds = new SKRect();
+            textPaint.MeasureText(annotation.Text, ref textBounds);
+
+            // Draw semi-transparent background
+            canvas.DrawRect(x - 2, y - textBounds.Height - 2,
+                textBounds.Width + 4, textBounds.Height + 4, bgPaint);
+
+            canvas.DrawText(annotation.Text, x, y, textPaint);
+        }
+
+        using var image = surface.Snapshot();
+        using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+        return data.ToArray();
+    }
+
     private static void ScanElementForPlaceholders(OpenXmlElement element, HashSet<string> placeholders)
     {
-        // Collect text from paragraphs. Placeholders may span multiple runs,
-        // so we concatenate all run texts within each paragraph and scan the result.
         foreach (var paragraph in element.Descendants<Paragraph>())
         {
             var fullText = string.Concat(paragraph.Descendants<Text>().Select(t => t.Text));
@@ -198,20 +356,17 @@ public sealed class DocxMergeService : IMergeService
             if (runs.Count == 0)
                 continue;
 
-            // Build the full paragraph text from all runs
             var fullText = string.Concat(runs.SelectMany(r => r.Descendants<Text>()).Select(t => t.Text));
 
             if (!PlaceholderRegex.IsMatch(fullText))
                 continue;
 
-            // Replace all placeholders
             var replacedText = PlaceholderRegex.Replace(fullText, match =>
             {
                 var key = match.Groups[1].Value;
                 return fieldValues.TryGetValue(key, out var value) ? value : match.Value;
             });
 
-            // Consolidate into the first run with text, remove text from subsequent runs
             bool firstTextSet = false;
             foreach (var run in runs)
             {
@@ -238,22 +393,17 @@ public sealed class DocxMergeService : IMergeService
         Dictionary<string, string> fieldValues,
         int rowNumber)
     {
-        // Replace {{RowNumber}} token
         var result = Regex.Replace(
             pattern,
             @"\{\{RowNumber\}\}",
             rowNumber.ToString(),
             RegexOptions.IgnoreCase);
 
-        // Replace any {{FieldName}} tokens with corresponding field values
         result = PlaceholderRegex.Replace(result, match =>
         {
             var key = match.Groups[1].Value;
             if (fieldValues.TryGetValue(key, out var value))
-            {
-                // Sanitize the value for use in file names
                 return SanitizeFileName(value);
-            }
             return match.Value;
         });
 

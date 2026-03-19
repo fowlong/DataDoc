@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CaptureFlow Document Designer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        #designer-container { width: 100%; height: 100%; }
+        #loading { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #64748b; font-size: 14px; }
+        #loading.hidden { display: none; }
+        #error { display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; margin: 20px; border-radius: 6px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading document designer...</div>
+    <div id="error"></div>
+    <div id="designer-container"></div>
+
+    <!-- Local bundle — no internet required -->
+    <script src="pdfme-bundle.js"></script>
+    <script>
+        function postMessage(data) {
+            try {
+                if (window.chrome && window.chrome.webview) {
+                    // Pass the object directly — WebView2 serializes it.
+                    // Do NOT JSON.stringify first, or WebMessageAsJson will double-encode.
+                    window.chrome.webview.postMessage(data);
+                }
+            } catch(e) {}
+        }
+
+        function showError(msg) {
+            document.getElementById('loading').classList.add('hidden');
+            var el = document.getElementById('error');
+            el.style.display = 'block';
+            el.textContent += (el.textContent ? '\n' : '') + msg;
+            postMessage({ type: 'error', message: msg });
+        }
+
+        // Global error handlers
+        window.onerror = function(msg, src, line, col, err) {
+            showError('JS Error: ' + msg + ' at ' + (src || '?') + ':' + line + ':' + col);
+        };
+        window.onunhandledrejection = function(ev) {
+            var msg = ev.reason ? (ev.reason.stack || ev.reason.message || String(ev.reason)) : 'Unknown promise rejection';
+            showError('Promise Error: ' + msg);
+        };
+
+        (function() {
+            var B = window.PdfmeBundle;
+            if (!B) {
+                showError('pdfme-bundle.js did not load. PdfmeBundle is undefined.\n\nCheck that the file exists at: Resources/pdfme-bundle.js relative to the application directory.');
+                return;
+            }
+
+            // Verify key exports exist
+            var missing = [];
+            if (!B.Designer) missing.push('Designer');
+            if (!B.BLANK_PDF) missing.push('BLANK_PDF');
+            if (!B.generate) missing.push('generate');
+            if (!B.text) missing.push('text');
+            if (missing.length > 0) {
+                showError('Bundle loaded but missing exports: ' + missing.join(', '));
+                return;
+            }
+
+            let designer = null;
+            const plugins = {};
+
+            // Register schema plugins
+            if (B.text) plugins.text = B.text;
+            if (B.multiVariableText) plugins.multiVariableText = B.multiVariableText;
+            if (B.image) plugins.image = B.image;
+            if (B.svg) plugins.svg = B.svg;
+            if (B.table) plugins.Table = B.table;
+            if (B.line) plugins.Line = B.line;
+            if (B.rectangle) plugins.Rectangle = B.rectangle;
+            if (B.ellipse) plugins.Ellipse = B.ellipse;
+
+            if (B.barcodes) {
+                Object.entries(B.barcodes).forEach(function(entry) {
+                    var key = entry[0], val = entry[1];
+                    if (val && typeof val === 'object') plugins[key] = val;
+                });
+            }
+
+            function arrayBufferToBase64(buffer) {
+                var bytes = new Uint8Array(buffer);
+                var binary = '';
+                var chunkSize = 8192;
+                for (var i = 0; i < bytes.length; i += chunkSize) {
+                    var chunk = bytes.subarray(i, i + chunkSize);
+                    binary += String.fromCharCode.apply(null, chunk);
+                }
+                return btoa(binary);
+            }
+
+            function initDesigner(template) {
+                var domContainer = document.getElementById('designer-container');
+                if (designer) {
+                    try { designer.destroy(); } catch(e) {}
+                }
+                domContainer.innerHTML = '';
+
+                designer = new B.Designer({
+                    domContainer: domContainer,
+                    template: template,
+                    plugins: plugins,
+                    options: {
+                        sidebarOpen: true,
+                        lang: 'en'
+                    }
+                });
+
+                designer.onChangeTemplate(function(t) {
+                    var fieldCount = t.schemas ? t.schemas.flat().length : 0;
+                    postMessage({ type: 'templateChanged', fieldCount: fieldCount });
+                });
+            }
+
+            // ---- API callable from C# via ExecuteScriptAsync ----
+            window.pdfmeApi = {
+                loadBasePdf: function(base64Pdf) {
+                    try {
+                        var template = designer ? designer.getTemplate() : { basePdf: B.BLANK_PDF, schemas: [[]] };
+                        if (!base64Pdf.startsWith('data:')) {
+                            base64Pdf = 'data:application/pdf;base64,' + base64Pdf;
+                        }
+                        template.basePdf = base64Pdf;
+                        initDesigner(template);
+                        postMessage({ type: 'basePdfLoaded' });
+                    } catch (err) {
+                        postMessage({ type: 'error', message: 'Failed to load base PDF: ' + err.message });
+                    }
+                },
+
+                getTemplate: function() {
+                    if (!designer) return JSON.stringify({ basePdf: B.BLANK_PDF, schemas: [[]] });
+                    return JSON.stringify(designer.getTemplate());
+                },
+
+                setTemplate: function(templateJson) {
+                    try {
+                        var template = JSON.parse(templateJson);
+                        initDesigner(template);
+                        postMessage({ type: 'templateLoaded' });
+                    } catch (err) {
+                        postMessage({ type: 'error', message: 'Failed to load template: ' + err.message });
+                    }
+                },
+
+                getFieldNames: function() {
+                    if (!designer) return '[]';
+                    var template = designer.getTemplate();
+                    var names = template.schemas.flat().map(function(s) { return s.name; });
+                    return JSON.stringify([...new Set(names)]);
+                },
+
+                generatePdf: async function(inputsJson, requestId) {
+                    try {
+                        var template = designer.getTemplate();
+                        var inputs = JSON.parse(inputsJson);
+                        var pdf = await B.generate({
+                            template: template,
+                            inputs: Array.isArray(inputs) ? inputs : [inputs],
+                            plugins: plugins
+                        });
+                        var base64 = arrayBufferToBase64(pdf);
+                        postMessage({ type: 'generateResult', requestId: requestId, data: base64 });
+                    } catch (err) {
+                        postMessage({ type: 'generateError', requestId: requestId, error: err.message });
+                    }
+                },
+
+                getPageCount: function() {
+                    if (!designer) return 1;
+                    var template = designer.getTemplate();
+                    return template.schemas ? template.schemas.length : 1;
+                }
+            };
+
+            // ---- Initialize ----
+            try {
+                var defaultTemplate = {
+                    basePdf: B.BLANK_PDF,
+                    schemas: [[]]
+                };
+                initDesigner(defaultTemplate);
+                document.getElementById('loading').classList.add('hidden');
+                postMessage({ type: 'ready' });
+            } catch (err) {
+                showError('Designer init failed: ' + (err.stack || err.message));
+            }
+        })();
+    </script>
+</body>
+</html>

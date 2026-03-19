@@ -53,8 +53,8 @@
                 <Separator />
                 <MenuItem Header="Export _CSV..." Command="{Binding ExportCsvCommand}" InputGestureText="Ctrl+E" />
             </MenuItem>
-            <MenuItem Header="_Merge">
-                <MenuItem Header="Open _Merge View..." Command="{Binding OpenMergeViewCommand}" />
+            <MenuItem Header="_Create">
+                <MenuItem Header="Open _Create View..." Command="{Binding OpenCreateViewCommand}" />
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}" />
@@ -71,7 +71,7 @@
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
                 <Button Content="Export CSV" Style="{StaticResource SecondaryButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,4,0" Padding="12,4" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
-                <Button Content="Merge" Style="{StaticResource ToolBarButton}" Command="{Binding OpenMergeViewCommand}" />
+                <Button Content="Create" Style="{StaticResource ToolBarButton}" Command="{Binding OpenCreateViewCommand}" />
             </StackPanel>
         </Border>
 
@@ -129,9 +129,9 @@
                 </Grid>
             </TabItem>
 
-            <!-- Merge Tab -->
-            <TabItem Header="Merge (CSV to Docs)">
-                <views:MergePanel DataContext="{Binding Merge}" />
+            <!-- Create Tab -->
+            <TabItem Header="Create (PDF from Template)">
+                <views:CreatePanel DataContext="{Binding Create}" />
             </TabItem>
 
             <!-- Templates Tab -->

@@ -1,0 +1,135 @@
+<UserControl x:Class="CaptureFlow.App.Views.CreatePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+             xmlns:conv="clr-namespace:CaptureFlow.App.Converters">
+
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: Controls Panel -->
+        <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="4">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8">
+                    <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
+
+                    <!-- Step 1: Base Document -->
+                    <TextBlock Text="1. Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                    <TextBlock Text="Load a PDF or DOCX as the document background"
+                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
+                    <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
+                            Command="{Binding LoadBaseDocumentCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding BaseDocumentPath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding BaseDocumentPath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
+
+                    <!-- Step 2: Design Fields -->
+                    <TextBlock Text="2. Design Fields" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
+                        Use the designer on the right to place text, image, table, barcode, and shape fields on your document. Name fields to match CSV column headers for auto-mapping.
+                    </TextBlock>
+                    <TextBlock FontSize="11" Margin="0,0,0,4">
+                        <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+
+                    <!-- Template Save/Load -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Save Template" Style="{StaticResource ToolBarButton}"
+                                Command="{Binding SaveTemplateCommand}" Margin="0,0,2,0" Padding="8,4" />
+                        <Button Grid.Column="1" Content="Load Template" Style="{StaticResource ToolBarButton}"
+                                Command="{Binding LoadTemplateCommand}" Margin="2,0,0,0" Padding="8,4" />
+                    </Grid>
+                    <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+
+                    <!-- Step 3: CSV Data -->
+                    <TextBlock Text="3. CSV Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
+                                Command="{Binding LoadCsvCommand}" Margin="0,0,2,0" />
+                        <Button Grid.Column="1" Content="Use Results" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DataContext.UseExtractionResultsInCreateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                ToolTip="Use current extraction results as data source" Margin="2,0,0,0" />
+                    </Grid>
+                    <TextBlock Text="{Binding CsvFilePath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"
+                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4" />
+
+                    <!-- CSV Preview (compact) -->
+                    <DataGrid ItemsSource="{Binding CsvPreviewTable}"
+                              AutoGenerateColumns="True" IsReadOnly="True"
+                              MaxHeight="120" FontSize="9"
+                              AlternatingRowBackground="#F8FAFC"
+                              HorizontalGridLinesBrush="#E2E8F0"
+                              VerticalGridLinesBrush="#E2E8F0"
+                              Margin="0,0,0,8" />
+
+                    <!-- Step 4: Output Settings -->
+                    <TextBlock Text="4. Output Settings" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="4,3" Margin="0,2,0,2" />
+                    <TextBlock Text="Use {{RowNumber}}, {{FieldName}} tokens" FontSize="9"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
+
+                    <TextBlock Text="Output Directory" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <Grid Margin="0,2,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" Padding="4,3" IsReadOnly="True" />
+                        <Button Grid.Column="1" Content="..." Style="{StaticResource ToolBarButton}"
+                                Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
+                    </Grid>
+
+                    <!-- Generate -->
+                    <Button Content="Generate All Documents" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding GenerateAllCommand}" HorizontalAlignment="Stretch" />
+
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="16" Margin="0,8,0,4"
+                                 Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource SubHeaderText}"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Right: pdfme Designer (WebView2) -->
+        <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Margin="0,4,4,4">
+            <Grid>
+                <!-- Designer WebView2 -->
+                <wv2:WebView2 x:Name="DesignerWebView"
+                              Visibility="{Binding IsDesignerReady, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Loading overlay -->
+                <Border Background="{StaticResource SurfaceBrush}"
+                        Visibility="{Binding IsDesignerReady, Converter={StaticResource InvBoolToVis}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Loading Document Designer..."
+                                   Style="{StaticResource HeaderText}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
