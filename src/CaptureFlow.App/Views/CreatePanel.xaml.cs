@@ -11,6 +11,8 @@ namespace CaptureFlow.App.Views;
 public partial class CreatePanel : UserControl, IDesignerBridge
 {
     private bool _isReady;
+    private bool _initFailed;
+    private string? _initError;
     private TaskCompletionSource? _readyTcs = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
 
@@ -41,6 +43,20 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 
             // Map the app's output directory so WebView2 can load the HTML file
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // Verify resources exist on disk
+            var htmlPath = Path.Combine(appDir, "Resources", "pdfme-designer.html");
+            var bundlePath = Path.Combine(appDir, "Resources", "pdfme-bundle.js");
+            if (!File.Exists(htmlPath) || !File.Exists(bundlePath))
+            {
+                var missing = new System.Collections.Generic.List<string>();
+                if (!File.Exists(htmlPath)) missing.Add("pdfme-designer.html");
+                if (!File.Exists(bundlePath)) missing.Add("pdfme-bundle.js");
+                if (DataContext is CreateViewModel vmRes)
+                    vmRes.StatusText = $"Missing resource files in {Path.Combine(appDir, "Resources")}: {string.Join(", ", missing)}";
+                return;
+            }
+
             DesignerWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
                 "captureflow.local",
                 appDir,
@@ -98,11 +114,13 @@ public partial class CreatePanel : UserControl, IDesignerBridge
                     break;
 
                 case "error":
+                    var errorMsg = root.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
+                    _initFailed = true;
+                    _initError = errorMsg;
+                    // Fail the ready TCS so callers get the error instead of timing out
+                    _readyTcs?.TrySetException(new InvalidOperationException($"Designer init failed: {errorMsg}"));
                     if (DataContext is CreateViewModel vm2)
-                    {
-                        var msg = root.TryGetProperty("message", out var m) ? m.GetString() : "Unknown error";
-                        vm2.StatusText = $"Designer error: {msg}";
-                    }
+                        vm2.StatusText = $"Designer error: {errorMsg}";
                     break;
             }
         }
@@ -150,12 +168,26 @@ public partial class CreatePanel : UserControl, IDesignerBridge
     private async Task WaitForReadyAsync(TimeSpan timeout)
     {
         if (_isReady) return;
+        if (_initFailed)
+            throw new InvalidOperationException($"Designer failed to initialize: {_initError}");
         var tcs = _readyTcs;
         if (tcs == null) return;
         var timeoutTask = Task.Delay(timeout);
         var completed = await Task.WhenAny(tcs.Task, timeoutTask);
         if (completed == timeoutTask)
-            throw new TimeoutException("Designer did not become ready within the timeout period. The pdfme library may still be loading.");
+        {
+            // Check if an error came in during the wait
+            if (_initFailed)
+                throw new InvalidOperationException($"Designer failed to initialize: {_initError}");
+
+            var appDir = AppDomain.CurrentDomain.BaseDirectory;
+            var bundleExists = File.Exists(Path.Combine(appDir, "Resources", "pdfme-bundle.js"));
+            throw new TimeoutException(
+                $"Designer did not become ready within {timeout.TotalSeconds}s. " +
+                $"Bundle file exists: {bundleExists}. App dir: {appDir}");
+        }
+        // If the TCS was faulted (by an error message), this will re-throw
+        await tcs.Task;
     }
 
     // ---- IDesignerBridge implementation ----

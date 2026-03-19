@@ -10,7 +10,7 @@
         #designer-container { width: 100%; height: 100%; }
         #loading { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #64748b; font-size: 14px; }
         #loading.hidden { display: none; }
-        #error { display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; margin: 20px; border-radius: 6px; }
+        #error { display: none; padding: 20px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; margin: 20px; border-radius: 6px; white-space: pre-wrap; }
     </style>
 </head>
 <body>
@@ -21,68 +21,67 @@
     <!-- Local bundle — no internet required -->
     <script src="pdfme-bundle.js"></script>
     <script>
-        // Global error handler to catch any uncaught errors (including async)
-        window.onerror = function(msg, src, line, col, err) {
-            var detail = msg + ' at ' + (src || '?') + ':' + line + ':' + col;
-            if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'JS Error: ' + detail }));
-            }
+        function postMessage(data) {
+            try {
+                if (window.chrome && window.chrome.webview) {
+                    window.chrome.webview.postMessage(JSON.stringify(data));
+                }
+            } catch(e) {}
+        }
+
+        function showError(msg) {
+            document.getElementById('loading').classList.add('hidden');
             var el = document.getElementById('error');
-            if (el) { el.style.display = 'block'; el.textContent = detail; }
+            el.style.display = 'block';
+            el.textContent += (el.textContent ? '\n' : '') + msg;
+            postMessage({ type: 'error', message: msg });
+        }
+
+        // Global error handlers
+        window.onerror = function(msg, src, line, col, err) {
+            showError('JS Error: ' + msg + ' at ' + (src || '?') + ':' + line + ':' + col);
         };
         window.onunhandledrejection = function(ev) {
-            var msg = ev.reason ? (ev.reason.message || String(ev.reason)) : 'Unknown promise rejection';
-            if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'Promise Error: ' + msg }));
-            }
-            var el = document.getElementById('error');
-            if (el) { el.style.display = 'block'; el.textContent = msg; }
+            var msg = ev.reason ? (ev.reason.stack || ev.reason.message || String(ev.reason)) : 'Unknown promise rejection';
+            showError('Promise Error: ' + msg);
         };
 
         (function() {
             var B = window.PdfmeBundle;
             if (!B) {
-                var el = document.getElementById('error');
-                el.style.display = 'block';
-                el.textContent = 'Failed to load pdfme-bundle.js — PdfmeBundle is undefined';
-                document.getElementById('loading').classList.add('hidden');
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage(JSON.stringify({ type: 'error', message: 'PdfmeBundle is undefined. The bundle JS file may not have loaded.' }));
-                }
+                showError('pdfme-bundle.js did not load. PdfmeBundle is undefined.\n\nCheck that the file exists at: Resources/pdfme-bundle.js relative to the application directory.');
                 return;
             }
-            let designer = null;
-            const plugins = {
-                text: B.text,
-                multiVariableText: B.multiVariableText,
-                image: B.image,
-                svg: B.svg,
-                Table: B.table,
-                Line: B.line,
-                Rectangle: B.rectangle,
-                Ellipse: B.ellipse
-            };
 
-            // Add barcode types
+            // Verify key exports exist
+            var missing = [];
+            if (!B.Designer) missing.push('Designer');
+            if (!B.BLANK_PDF) missing.push('BLANK_PDF');
+            if (!B.generate) missing.push('generate');
+            if (!B.text) missing.push('text');
+            if (missing.length > 0) {
+                showError('Bundle loaded but missing exports: ' + missing.join(', '));
+                return;
+            }
+
+            let designer = null;
+            const plugins = {};
+
+            // Register schema plugins
+            if (B.text) plugins.text = B.text;
+            if (B.multiVariableText) plugins.multiVariableText = B.multiVariableText;
+            if (B.image) plugins.image = B.image;
+            if (B.svg) plugins.svg = B.svg;
+            if (B.table) plugins.Table = B.table;
+            if (B.line) plugins.Line = B.line;
+            if (B.rectangle) plugins.Rectangle = B.rectangle;
+            if (B.ellipse) plugins.Ellipse = B.ellipse;
+
             if (B.barcodes) {
                 Object.entries(B.barcodes).forEach(function(entry) {
                     var key = entry[0], val = entry[1];
                     if (val && typeof val === 'object') plugins[key] = val;
                 });
-            }
-
-            function showError(msg) {
-                document.getElementById('loading').classList.add('hidden');
-                var el = document.getElementById('error');
-                el.style.display = 'block';
-                el.textContent = 'Designer load error: ' + msg;
-                postMessage({ type: 'error', message: msg });
-            }
-
-            function postMessage(data) {
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage(JSON.stringify(data));
-                }
             }
 
             function arrayBufferToBase64(buffer) {
@@ -182,15 +181,15 @@
 
             // ---- Initialize ----
             try {
-                document.getElementById('loading').classList.add('hidden');
                 var defaultTemplate = {
                     basePdf: B.BLANK_PDF,
                     schemas: [[]]
                 };
                 initDesigner(defaultTemplate);
+                document.getElementById('loading').classList.add('hidden');
                 postMessage({ type: 'ready' });
             } catch (err) {
-                showError(err.message);
+                showError('Designer init failed: ' + (err.stack || err.message));
             }
         })();
     </script>
