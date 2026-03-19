@@ -99,7 +99,7 @@ public class CsvExportService
                 }
                 else if (header == "SourcePage" && options.IncludeSourcePage)
                 {
-                    value = row.SourcePageIndex?.ToString() ?? "";
+                    value = row.SourcePageIndex.HasValue ? (row.SourcePageIndex.Value + 1).ToString() : "";
                 }
                 else if (row.Cells.TryGetValue(header, out var cell))
                 {

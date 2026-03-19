@@ -560,20 +560,13 @@ public partial class MainViewModel : ObservableObject
     private void OpenCreateView()
     {
         SelectedTabIndex = 1; // Extract=0, Create=1, Templates=2
-    }
 
-    [RelayCommand]
-    private void UseExtractionResultsInCreate()
-    {
-        if (_lastExtractionRows.Count == 0)
+        // Auto-load extraction results if available and no CSV data already loaded
+        if (_lastExtractionRows.Count > 0 && Create.TotalRows == 0)
         {
-            StatusMessage = "No extraction results to use";
-            return;
+            Create.LoadFromExtractionResults(_lastExtractionRows);
+            StatusMessage = $"Loaded {_lastExtractionRows.Count} extraction rows into create";
         }
-
-        Create.LoadFromExtractionResults(_lastExtractionRows);
-        SelectedTabIndex = 1;
-        StatusMessage = $"Loaded {_lastExtractionRows.Count} extraction rows into create";
     }
 
     [RelayCommand]

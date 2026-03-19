@@ -76,6 +76,15 @@ public class BoolToCursorConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+public class AddOneConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is int i ? i + 1 : value;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is int i ? i - 1 : value;
+}
+
 public class ValidationStateToBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
