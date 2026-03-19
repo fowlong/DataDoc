@@ -19,10 +19,19 @@
                 <StackPanel>
                     <TextBlock Text="Merge: CSV to Documents" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
 
-                    <!-- Step 1: Load CSV -->
-                    <TextBlock Text="1. Data Source (CSV)" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
-                    <Button Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
-                            Command="{Binding LoadCsvCommand}" HorizontalAlignment="Left" Margin="0,0,0,4" />
+                    <!-- Step 1: Load CSV or use extraction results -->
+                    <TextBlock Text="1. Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
+                                Command="{Binding LoadCsvCommand}" Margin="0,0,2,0" />
+                        <Button Grid.Column="1" Content="Use Results" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DataContext.UseExtractionResultsInMergeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                ToolTip="Use current extraction results as data source" Margin="2,0,0,0" />
+                    </Grid>
                     <TextBlock Text="{Binding CsvFilePath}" FontSize="11" TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"

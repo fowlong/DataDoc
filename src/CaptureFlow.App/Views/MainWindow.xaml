@@ -79,7 +79,8 @@
                 <Button Content="Save Template" Style="{StaticResource ToolBarButton}" Command="{Binding SaveTemplateCommand}" Margin="0,0,4,0" />
                 <Button Content="Load Template" Style="{StaticResource ToolBarButton}" Command="{Binding LoadTemplateCommand}" Margin="0,0,4,0" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
-                <Button Content="Run Extraction" Style="{StaticResource PrimaryButton}" Command="{Binding RunExtractionCommand}" Margin="0,0,4,0" Padding="12,4" />
+                <Button Content="Extract" Style="{StaticResource PrimaryButton}" Command="{Binding RunExtractionCommand}" Margin="0,0,4,0" Padding="12,4" ToolTip="Extract current document (F5)" />
+                <Button Content="Extract All" Style="{StaticResource SecondaryButton}" Command="{Binding RunExtractionAllCommand}" Margin="0,0,4,0" Padding="12,4" ToolTip="Extract all loaded documents" />
                 <Button Content="Export CSV" Style="{StaticResource SecondaryButton}" Command="{Binding ExportCsvCommand}" Margin="0,0,4,0" Padding="12,4" />
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,2" />
                 <Button Content="Merge" Style="{StaticResource ToolBarButton}" Command="{Binding OpenMergeViewCommand}" />
@@ -138,11 +139,6 @@
                         <views:PropertiesPanel DataContext="{Binding}" />
                     </Border>
                 </Grid>
-            </TabItem>
-
-            <!-- Batch Tab -->
-            <TabItem Header="Batch">
-                <views:BatchPanel DataContext="{Binding Batch}" />
             </TabItem>
 
             <!-- Merge Tab -->
