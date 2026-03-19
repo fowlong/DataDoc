@@ -21,6 +21,11 @@ public class CaptureBox
     public bool Enabled { get; set; } = true;
     public string? ColorHex { get; set; }
     public int SortOrder { get; set; }
+    /// <summary>
+    /// Which CSV output this field belongs to. Default is "CSV 1".
+    /// Multiple groups produce separate extraction result sets.
+    /// </summary>
+    public string CsvGroup { get; set; } = "CSV 1";
 }
 
 public class AnchorConfig

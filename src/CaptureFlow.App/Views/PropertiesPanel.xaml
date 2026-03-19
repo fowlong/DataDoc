@@ -59,6 +59,16 @@
                     <ComboBox SelectedValue="{Binding RowTargetMode}" Margin="0,2,0,6" Padding="4,3"
                               ItemsSource="{Binding Source={x:Static models:RowTargetModeValues.All}}" />
 
+                    <TextBlock Text="CSV Group" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <ComboBox IsEditable="True"
+                              Text="{Binding CsvGroup, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,2,0,6" Padding="4,3"
+                              ToolTip="Which CSV output this field belongs to (e.g. CSV 1, CSV 2)">
+                        <ComboBoxItem Content="CSV 1" />
+                        <ComboBoxItem Content="CSV 2" />
+                        <ComboBoxItem Content="CSV 3" />
+                    </ComboBox>
+
                     <TextBlock Text="Default Value" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBox Text="{Binding DefaultValue, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" Padding="4,3" />
 

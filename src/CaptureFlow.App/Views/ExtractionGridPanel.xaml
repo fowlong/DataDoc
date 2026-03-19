@@ -11,6 +11,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -27,13 +28,55 @@
                            VerticalAlignment="Center" Margin="4,0,0,0" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <CheckBox Content="Auto-clear" IsChecked="{Binding AutoClearOnExtract}"
+                          VerticalAlignment="Center" Margin="0,0,8,0"
+                          ToolTip="When checked, clears previous results on each extraction. Uncheck to accumulate results." />
+                <Button Content="Delete Row" Style="{StaticResource ToolBarButton}"
+                        Command="{Binding DeleteSelectedRowsCommand}"
+                        CommandParameter="{Binding SelectedItems, ElementName=ResultsGrid}"
+                        Margin="0,0,4,0" />
                 <Button Content="Add Row" Style="{StaticResource ToolBarButton}" Command="{Binding AddRowCommand}" Margin="0,0,4,0" />
                 <Button Content="Clear" Style="{StaticResource ToolBarButton}" Command="{Binding ClearResultsCommand}" />
             </StackPanel>
         </Grid>
 
+        <!-- CSV Group Tabs (shown when multiple groups exist) -->
+        <ListBox Grid.Row="1" ItemsSource="{Binding CsvGroups}"
+                 SelectedItem="{Binding SelectedCsvGroup}"
+                 Margin="0,0,0,4"
+                 BorderThickness="0" Background="Transparent"
+                 Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <Border x:Name="Bd" Background="{StaticResource PanelBackgroundBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,1,1,0"
+                                        CornerRadius="4,4,0,0" Padding="10,4" Margin="0,0,2,0" Cursor="Hand">
+                                    <ContentPresenter />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceBrush}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+
         <!-- Data Grid -->
-        <DataGrid Grid.Row="1"
+        <DataGrid Grid.Row="2"
+                  x:Name="ResultsGrid"
                   ItemsSource="{Binding ResultsTable}"
                   AutoGenerateColumns="True"
                   CanUserAddRows="True"
@@ -42,7 +85,7 @@
                   CanUserReorderColumns="True"
                   CanUserResizeColumns="True"
                   SelectionMode="Extended"
-                  SelectionUnit="CellOrRowHeader"
+                  SelectionUnit="FullRow"
                   GridLinesVisibility="All"
                   HeadersVisibility="Column"
                   AlternatingRowBackground="#F8FAFC"
@@ -67,13 +110,13 @@
         </DataGrid>
 
         <!-- Empty state -->
-        <TextBlock Grid.Row="1" Text="Run extraction to see results here"
+        <TextBlock Grid.Row="2" Text="Run extraction to see results here"
                    Visibility="{Binding HasResults, Converter={StaticResource InvBoolToVis}}"
                    Style="{StaticResource SubHeaderText}"
                    HorizontalAlignment="Center" VerticalAlignment="Center" />
 
         <!-- Footer -->
-        <TextBlock Grid.Row="2" Margin="0,4,0,0"
+        <TextBlock Grid.Row="3" Margin="0,4,0,0"
                    Text="{Binding SourceFileName, StringFormat='Source: {0}'}"
                    Style="{StaticResource SubHeaderText}" />
     </Grid>

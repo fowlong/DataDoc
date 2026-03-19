@@ -397,7 +397,7 @@ public partial class MainViewModel : ObservableObject
 
             _lastExtractionRows = rows;
             OnPropertyChanged(nameof(HasExtractionResults));
-            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName);
+            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName, CaptureBoxes.ToList());
             RefreshCsvHeaders();
             StatusMessage = $"Extracted {rows.Count} rows";
         }
@@ -462,7 +462,9 @@ public partial class MainViewModel : ObservableObject
 
             _lastExtractionRows = allRows;
             OnPropertyChanged(nameof(HasExtractionResults));
-            ExtractionGrid.LoadResults(allRows, $"{LoadedDocuments.Count} documents");
+            // Collect all capture boxes across all docs for group detection
+            var allBoxes = _documentCaptureBoxes.Values.SelectMany(b => b).ToList();
+            ExtractionGrid.LoadResults(allRows, $"{LoadedDocuments.Count} documents", allBoxes);
             RefreshCsvHeaders();
 
             var msg = $"Extracted {allRows.Count} rows from {LoadedDocuments.Count - skipped} documents";
@@ -503,8 +505,17 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            await _csvExportService.ExportAsync(ExtractionGrid.GetRows(), dialog.FileName);
-            StatusMessage = $"Exported to {dialog.FileName}";
+            var table = ExtractionGrid.ResultsTable;
+            if (table != null)
+            {
+                await _csvExportService.ExportTableAsync(table, dialog.FileName);
+                StatusMessage = $"Exported {table.Rows.Count} rows to {dialog.FileName}";
+            }
+            else
+            {
+                await _csvExportService.ExportAsync(ExtractionGrid.GetRows(), dialog.FileName);
+                StatusMessage = $"Exported to {dialog.FileName}";
+            }
         }
         catch (Exception ex)
         {
@@ -628,32 +639,40 @@ public partial class MainViewModel : ObservableObject
     {
         if (template == null || Preview.Document == null) return;
 
-        foreach (var box in template.CaptureBoxes.Where(b => b.PageIndex == Preview.CurrentPageIndex || b.PageIndex == 0))
+        // Clear existing boxes on the target page to prevent duplication
+        var pageIndex = Preview.CurrentPageIndex;
+        var toRemove = CaptureBoxes.Where(b => b.PageIndex == pageIndex).ToList();
+        foreach (var b in toRemove) CaptureBoxes.Remove(b);
+
+        foreach (var box in template.CaptureBoxes.Where(b => b.PageIndex == pageIndex || b.PageIndex == 0))
         {
-            var newBox = new CaptureBox
+            CaptureBoxes.Add(new CaptureBox
             {
                 Name = box.Name,
                 OutputHeader = box.OutputHeader,
-                PageIndex = Preview.CurrentPageIndex,
+                PageIndex = pageIndex,
                 Rect = box.Rect,
                 ExtractionMode = box.ExtractionMode,
                 RowTargetMode = box.RowTargetMode,
                 Enabled = box.Enabled,
                 DefaultValue = box.DefaultValue,
-                Notes = box.Notes
-            };
-            CaptureBoxes.Add(newBox);
+                Notes = box.Notes,
+                CsvGroup = box.CsvGroup
+            });
         }
 
         Preview.RefreshOverlays();
         RefreshCsvHeaders();
-        StatusMessage = $"Applied page template '{template.Name}' to page {Preview.CurrentPageIndex + 1}";
+        StatusMessage = $"Applied page template '{template.Name}' to page {pageIndex + 1}";
     }
 
     [RelayCommand]
     private async Task ApplyDocumentTemplate(DocumentTemplate template)
     {
         if (template == null || Preview.Document == null) return;
+
+        // Clear all existing boxes for this document to prevent duplication
+        CaptureBoxes.Clear();
 
         var pageTemplates = await _templateRepository.GetAllPageTemplatesAsync();
 
@@ -665,7 +684,7 @@ public partial class MainViewModel : ObservableObject
             var targetPage = assignment.PageIndex ?? 0;
             foreach (var box in pageTemplate.CaptureBoxes)
             {
-                var newBox = new CaptureBox
+                CaptureBoxes.Add(new CaptureBox
                 {
                     Name = box.Name,
                     OutputHeader = box.OutputHeader,
@@ -675,13 +694,12 @@ public partial class MainViewModel : ObservableObject
                     RowTargetMode = box.RowTargetMode,
                     Enabled = box.Enabled,
                     DefaultValue = box.DefaultValue,
-                    Notes = box.Notes
-                };
-                CaptureBoxes.Add(newBox);
+                    Notes = box.Notes,
+                    CsvGroup = box.CsvGroup
+                });
             }
         }
 
-        // Also add document-level fields
         foreach (var box in template.DocumentLevelFields)
         {
             CaptureBoxes.Add(new CaptureBox
@@ -692,7 +710,8 @@ public partial class MainViewModel : ObservableObject
                 Rect = box.Rect,
                 ExtractionMode = box.ExtractionMode,
                 RowTargetMode = box.RowTargetMode,
-                Enabled = box.Enabled
+                Enabled = box.Enabled,
+                CsvGroup = box.CsvGroup
             });
         }
 
@@ -711,12 +730,9 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var doc in LoadedDocuments)
         {
-            // Get or create the per-document box list
-            if (!_documentCaptureBoxes.TryGetValue(doc.Id, out var docBoxes))
-            {
-                docBoxes = [];
-                _documentCaptureBoxes[doc.Id] = docBoxes;
-            }
+            // Clear existing boxes for this doc before applying template
+            var docBoxes = new List<CaptureBox>();
+            _documentCaptureBoxes[doc.Id] = docBoxes;
 
             foreach (var assignment in template.PageAssignments)
             {
@@ -738,7 +754,8 @@ public partial class MainViewModel : ObservableObject
                         RowTargetMode = box.RowTargetMode,
                         Enabled = box.Enabled,
                         DefaultValue = box.DefaultValue,
-                        Notes = box.Notes
+                        Notes = box.Notes,
+                        CsvGroup = box.CsvGroup
                     });
                 }
             }
@@ -753,7 +770,8 @@ public partial class MainViewModel : ObservableObject
                     Rect = box.Rect,
                     ExtractionMode = box.ExtractionMode,
                     RowTargetMode = box.RowTargetMode,
-                    Enabled = box.Enabled
+                    Enabled = box.Enabled,
+                    CsvGroup = box.CsvGroup
                 });
             }
 
@@ -802,7 +820,8 @@ public partial class MainViewModel : ObservableObject
                 RowTargetMode = b.RowTargetMode,
                 Enabled = b.Enabled,
                 DefaultValue = b.DefaultValue,
-                Notes = b.Notes
+                Notes = b.Notes,
+                CsvGroup = b.CsvGroup
             }).ToList(),
             ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
         };
@@ -841,7 +860,8 @@ public partial class MainViewModel : ObservableObject
                     RowTargetMode = b.RowTargetMode,
                     Enabled = b.Enabled,
                     DefaultValue = b.DefaultValue,
-                    Notes = b.Notes
+                    Notes = b.Notes,
+                    CsvGroup = b.CsvGroup
                 }).ToList(),
                 ApplicableFileTypes = CurrentDocument != null ? [CurrentDocument.FileType] : []
             };

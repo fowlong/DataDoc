@@ -122,6 +122,53 @@ public class CsvExportService
             rows.Count, headers.Count, outputPath);
     }
 
+    /// <summary>
+    /// Exports a DataTable directly to CSV — preserves user edits and row deletions.
+    /// </summary>
+    public async Task ExportTableAsync(
+        System.Data.DataTable table,
+        string outputPath,
+        CsvExportOptions? options = null,
+        CancellationToken ct = default)
+    {
+        options ??= new CsvExportOptions();
+
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            Delimiter = options.Separator,
+            HasHeaderRecord = true,
+            ShouldQuote = _ => true
+        };
+
+        var encoding = GetEncoding(options.EncodingName);
+
+        var directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
+        await using var writer = new StreamWriter(outputPath, false, encoding);
+        await using var csv = new CsvWriter(writer, config);
+
+        // Write headers
+        foreach (System.Data.DataColumn col in table.Columns)
+            csv.WriteField(col.ColumnName);
+        await csv.NextRecordAsync();
+
+        // Write rows
+        foreach (System.Data.DataRow row in table.Rows)
+        {
+            ct.ThrowIfCancellationRequested();
+            foreach (System.Data.DataColumn col in table.Columns)
+                csv.WriteField(row[col]?.ToString() ?? "");
+            await csv.NextRecordAsync();
+        }
+
+        await csv.FlushAsync();
+
+        _logger.LogInformation("Exported {RowCount} rows with {ColumnCount} columns to {Path}",
+            table.Rows.Count, table.Columns.Count, outputPath);
+    }
+
     private static Encoding GetEncoding(string? name)
     {
         if (string.IsNullOrEmpty(name))

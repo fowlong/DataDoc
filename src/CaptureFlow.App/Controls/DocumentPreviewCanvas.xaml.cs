@@ -49,6 +49,9 @@ public partial class DocumentPreviewCanvas : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
 
+        // Refresh overlays when the page image finishes rendering at new dimensions
+        PageImage.SizeChanged += (_, _) => RefreshOverlays();
+
         // Keyboard shortcuts for box manipulation
         KeyDown += OnKeyDown;
         Focusable = true;
