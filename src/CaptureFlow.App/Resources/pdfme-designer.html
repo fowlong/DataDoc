@@ -186,12 +186,22 @@
                     var field = {
                         name: headerName,
                         type: 'text',
+                        content: '{{' + headerName + '}}',
                         position: { x: 20, y: 20 + pageSchemas.length * 12 },
                         width: 60,
                         height: 10,
+                        rotate: 0,
+                        alignment: 'left',
+                        verticalAlignment: 'top',
                         fontSize: 11,
-                        content: '{{' + headerName + '}}',
-                        readOnly: true
+                        lineHeight: 1,
+                        characterSpacing: 0,
+                        fontColor: '#1e40af',
+                        backgroundColor: '#dbeafe',
+                        opacity: 1,
+                        readOnly: true,
+                        strikethrough: false,
+                        underline: false
                     };
                     pageSchemas.push(field);
                     template.schemas[0] = pageSchemas;

@@ -48,10 +48,10 @@ public partial class CreateViewModel : ObservableObject
     [ObservableProperty] private bool _isDesignerReady;
     [ObservableProperty] private int _fieldCount;
     [ObservableProperty] private string _templateFilePath = "";
-    [ObservableProperty] private string? _selectedMergeHeader;
     [ObservableProperty] private bool _useAllRows = true;
     [ObservableProperty] private bool _useSpecificRows;
     [ObservableProperty] private string _rowSelectionPattern = "";
+    [ObservableProperty] private bool _hasCsvHeaders;
 
     public ObservableCollection<string> CsvHeaders { get; } = [];
 
@@ -178,6 +178,9 @@ public partial class CreateViewModel : ObservableObject
         _csvRows.Clear();
         CsvHeaders.Clear();
 
+        var headers = new List<string>();
+        var rows = new List<Dictionary<string, string>>();
+
         await Task.Run(() =>
         {
             using var reader = new StreamReader(filePath);
@@ -193,19 +196,24 @@ public partial class CreateViewModel : ObservableObject
             if (csv.HeaderRecord != null)
             {
                 foreach (var h in csv.HeaderRecord)
-                    CsvHeaders.Add(h);
+                    headers.Add(h);
             }
 
             while (csv.Read())
             {
                 var row = new Dictionary<string, string>();
-                foreach (var header in CsvHeaders)
+                foreach (var header in headers)
                     row[header] = csv.GetField(header) ?? "";
-                _csvRows.Add(row);
+                rows.Add(row);
             }
         });
 
+        foreach (var h in headers)
+            CsvHeaders.Add(h);
+        _csvRows = rows;
+
         TotalRows = _csvRows.Count;
+        HasCsvHeaders = CsvHeaders.Count > 0;
 
         var table = new DataTable();
         foreach (var h in CsvHeaders)
@@ -424,6 +432,7 @@ public partial class CreateViewModel : ObservableObject
         }
 
         TotalRows = _csvRows.Count;
+        HasCsvHeaders = CsvHeaders.Count > 0;
         CsvFilePath = "(extraction results)";
 
         var table = new DataTable();
@@ -443,7 +452,7 @@ public partial class CreateViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task InsertMergeField()
+    private async Task InsertMergeField(string? headerName)
     {
         if (_designerBridge == null || !_designerBridge.IsReady)
         {
@@ -451,14 +460,14 @@ public partial class CreateViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(SelectedMergeHeader))
+        if (string.IsNullOrWhiteSpace(headerName))
         {
-            StatusText = "Select a CSV header first";
+            StatusText = "No header specified";
             return;
         }
 
-        await _designerBridge.InsertMergeFieldAsync(SelectedMergeHeader);
-        StatusText = $"Inserted merge field: {SelectedMergeHeader}";
+        await _designerBridge.InsertMergeFieldAsync(headerName);
+        StatusText = $"Inserted merge field: {headerName}";
     }
 
     public void UpdateFieldCount(int count)

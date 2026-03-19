@@ -13,6 +13,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
         <!-- Left: Controls Panel -->
@@ -21,8 +22,8 @@
                 <StackPanel Margin="8">
                     <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
 
-                    <!-- Step 1: Base Document -->
-                    <TextBlock Text="1. Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                    <!-- Base Document -->
+                    <TextBlock Text="Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
                     <TextBlock Text="Load a PDF or DOCX as the document background"
                                FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
                     <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
@@ -32,35 +33,16 @@
                     <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
 
-                    <!-- Step 2: Design Fields -->
-                    <TextBlock Text="2. Design Fields" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <!-- Merge Template -->
+                    <TextBlock Text="Merge Template" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
                     <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
-                        Use the designer on the right to place text, image, table, and shape fields. Insert merge fields below to link CSV columns — they appear as placeholders on the document and get replaced with row data during generation.
+                        Use the designer to place fields, or load a saved template. Merge fields from CSV data appear as coloured placeholders.
                     </TextBlock>
                     <TextBlock FontSize="11" Margin="0,0,0,4">
                         <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
                         <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
                     </TextBlock>
-
-                    <!-- Insert Merge Field -->
-                    <TextBlock Text="Insert Merge Field" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,2" />
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox Grid.Column="0" x:Name="MergeFieldCombo"
-                                  ItemsSource="{Binding CsvHeaders}"
-                                  SelectedItem="{Binding SelectedMergeHeader}"
-                                  Padding="4,3" FontSize="11"
-                                  ToolTip="Select a CSV column header to insert as a merge field" />
-                        <Button Grid.Column="1" Content="Insert" Style="{StaticResource ToolBarButton}"
-                                Command="{Binding InsertMergeFieldCommand}" Width="50" Margin="4,0,0,0"
-                                ToolTip="Insert selected CSV header as a merge field on the document" />
-                    </Grid>
-
-                    <!-- Template Save/Load -->
-                    <Grid Margin="0,0,0,8">
+                    <Grid Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
@@ -73,8 +55,8 @@
                     <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
 
-                    <!-- Step 3: CSV Data -->
-                    <TextBlock Text="3. CSV Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <!-- CSV Data Source -->
+                    <TextBlock Text="CSV Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
                     <Grid Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -112,8 +94,8 @@
                     <TextBlock Text="e.g. 1,4 or 1-4 or 1,3-5,8" FontSize="9"
                                Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
 
-                    <!-- Step 4: Output Settings -->
-                    <TextBlock Text="4. Output Settings" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
+                    <!-- Output Settings -->
+                    <TextBlock Text="Output Settings" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
                     <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
                              Padding="4,3" Margin="0,2,0,2" />
@@ -143,14 +125,11 @@
             </ScrollViewer>
         </Border>
 
-        <!-- Right: pdfme Designer (WebView2) -->
-        <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Margin="0,4,4,4">
+        <!-- Centre: pdfme Designer (WebView2) -->
+        <Border Grid.Column="1" Style="{StaticResource PanelBorder}" Margin="0,4,0,4">
             <Grid>
-                <!-- Designer WebView2 -->
                 <wv2:WebView2 x:Name="DesignerWebView"
                               Visibility="{Binding IsDesignerReady, Converter={StaticResource BoolToVis}}" />
-
-                <!-- Loading overlay -->
                 <Border Background="{StaticResource SurfaceBrush}"
                         Visibility="{Binding IsDesignerReady, Converter={StaticResource InvBoolToVis}}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -159,6 +138,39 @@
                     </StackPanel>
                 </Border>
             </Grid>
+        </Border>
+
+        <!-- Right: Merge Fields Panel -->
+        <Border Grid.Column="2" Style="{StaticResource PanelBorder}" Margin="0,4,4,4"
+                Width="200"
+                Visibility="{Binding HasCsvHeaders, Converter={StaticResource BoolToVis}}">
+            <DockPanel Margin="8">
+                <TextBlock DockPanel.Dock="Top" Text="Merge Fields" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top" Text="Click Insert to place on document"
+                           FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding CsvHeaders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#DBEAFE" CornerRadius="3" Padding="6,3" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="#1E40AF" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding}" />
+                                    </Border>
+                                    <Button Grid.Column="1" Content="Insert" Padding="8,2" Margin="4,0,0,0"
+                                            Style="{StaticResource ToolBarButton}" FontSize="10"
+                                            Command="{Binding DataContext.InsertMergeFieldCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>
