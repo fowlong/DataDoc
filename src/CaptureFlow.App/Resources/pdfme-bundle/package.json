@@ -1,0 +1,17 @@
+{
+  "name": "pdfme-bundle",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@pdfme/ui": "5.5.9",
+    "@pdfme/generator": "5.5.9",
+    "@pdfme/common": "5.5.9",
+    "@pdfme/schemas": "5.5.9"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
