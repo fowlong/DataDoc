@@ -31,15 +31,15 @@ public partial class ExtractionGridViewModel : ObservableObject
     private readonly Dictionary<string, DataTable> _groupTables = new();
 
     /// <summary>
-    /// Per-group row lists for export.
+    /// Header-to-group mapping built from capture boxes.
     /// </summary>
-    private readonly Dictionary<string, List<ExtractionRow>> _groupRows = new();
+    private Dictionary<string, string> _headerToGroup = new();
 
     public void LoadResults(List<ExtractionRow> rows, string sourceFileName, List<CaptureBox>? captureBoxes = null)
     {
         if (AutoClearOnExtract)
         {
-            _rows = rows;
+            _rows = new List<ExtractionRow>(rows);
         }
         else
         {
@@ -48,33 +48,19 @@ public partial class ExtractionGridViewModel : ObservableObject
 
         SourceFileName = sourceFileName;
 
-        // Determine CSV groups from capture boxes or default
-        var groups = new HashSet<string> { "CSV 1" };
-        if (captureBoxes != null)
-        {
-            foreach (var box in captureBoxes)
-            {
-                if (!string.IsNullOrWhiteSpace(box.CsvGroup))
-                    groups.Add(box.CsvGroup);
-            }
-        }
-
-        // Also detect groups from row headers if boxes had CsvGroup-prefixed headers
-        // For now, we'll use CsvGroup from the boxes to partition columns
-
-        // Build group membership: which headers belong to which group
-        var headerToGroup = new Dictionary<string, string>();
+        // Build header-to-group mapping from capture boxes
+        _headerToGroup = new Dictionary<string, string>();
         if (captureBoxes != null)
         {
             foreach (var box in captureBoxes)
             {
                 var group = string.IsNullOrWhiteSpace(box.CsvGroup) ? "CSV 1" : box.CsvGroup;
                 if (!string.IsNullOrWhiteSpace(box.OutputHeader))
-                    headerToGroup[box.OutputHeader] = group;
+                    _headerToGroup[box.OutputHeader] = group;
             }
         }
 
-        // Collect all unique headers
+        // Collect all unique headers from actual data
         _headers = _rows
             .SelectMany(r => r.Cells.Keys)
             .Distinct()
@@ -83,64 +69,64 @@ public partial class ExtractionGridViewModel : ObservableObject
         // Assign any unmapped headers to default group
         foreach (var h in _headers)
         {
-            if (!headerToGroup.ContainsKey(h))
-                headerToGroup[h] = "CSV 1";
+            if (!_headerToGroup.ContainsKey(h))
+                _headerToGroup[h] = "CSV 1";
         }
 
-        // Rebuild group tables
+        // Determine all groups
+        var groups = _headerToGroup.Values.Distinct().OrderBy(g => g).ToList();
+        if (groups.Count == 0) groups.Add("CSV 1");
+
+        // Check if we need source columns
+        bool hasSourceFile = _rows.Any(r => !string.IsNullOrEmpty(r.SourceFileName));
+        bool hasSourcePage = _rows.Any(r => r.SourcePageIndex.HasValue);
+
+        // Build per-group tables — ALL rows appear in each group, just different columns
         _groupTables.Clear();
-        _groupRows.Clear();
         CsvGroups.Clear();
 
-        foreach (var group in groups.OrderBy(g => g))
+        foreach (var group in groups)
         {
             CsvGroups.Add(group);
-            var groupHeaders = _headers.Where(h => headerToGroup.GetValueOrDefault(h, "CSV 1") == group).ToList();
+            var groupHeaders = _headers
+                .Where(h => _headerToGroup.GetValueOrDefault(h, "CSV 1") == group)
+                .ToList();
 
             var table = new DataTable();
-            var allColumns = new List<string>();
-            if (_rows.Any(r => !string.IsNullOrEmpty(r.SourceFileName)))
-                allColumns.Add("_SourceFile");
-            if (_rows.Any(r => r.SourcePageIndex.HasValue))
-                allColumns.Add("_Page");
-            allColumns.AddRange(groupHeaders);
 
-            foreach (var header in allColumns)
+            // Add source tracking columns
+            if (hasSourceFile) table.Columns.Add("_SourceFile", typeof(string));
+            if (hasSourcePage) table.Columns.Add("_Page", typeof(string));
+
+            // Add data columns for this group
+            foreach (var header in groupHeaders)
                 table.Columns.Add(header, typeof(string));
 
-            var groupRowList = new List<ExtractionRow>();
+            // Add ALL rows — each group is a different column view of the same data
             foreach (var row in _rows)
             {
-                // Only include rows that have at least one cell in this group
-                if (!groupHeaders.Any(h => row.Cells.ContainsKey(h))) continue;
-
                 var dataRow = table.NewRow();
-                if (allColumns.Contains("_SourceFile"))
-                    dataRow["_SourceFile"] = row.SourceFileName;
-                if (allColumns.Contains("_Page"))
-                    dataRow["_Page"] = row.SourcePageIndex?.ToString() ?? "";
+                if (hasSourceFile) dataRow["_SourceFile"] = row.SourceFileName;
+                if (hasSourcePage) dataRow["_Page"] = row.SourcePageIndex?.ToString() ?? "";
 
                 foreach (var header in groupHeaders)
                 {
-                    if (row.Cells.TryGetValue(header, out var cell))
-                        dataRow[header] = cell.DisplayValue;
-                    else
-                        dataRow[header] = "";
+                    dataRow[header] = row.Cells.TryGetValue(header, out var cell)
+                        ? cell.DisplayValue
+                        : "";
                 }
 
                 table.Rows.Add(dataRow);
-                groupRowList.Add(row);
             }
 
             _groupTables[group] = table;
-            _groupRows[group] = groupRowList;
         }
 
-        // Select first group and show its table
-        if (CsvGroups.Count > 0 && !CsvGroups.Contains(SelectedCsvGroup))
-            SelectedCsvGroup = CsvGroups[0];
-
-        ShowGroupTable(SelectedCsvGroup);
+        // Select current group or first available
+        if (!CsvGroups.Contains(SelectedCsvGroup))
+            SelectedCsvGroup = CsvGroups.FirstOrDefault() ?? "CSV 1";
+        else
+            ShowGroupTable(SelectedCsvGroup); // force refresh even if group name unchanged
     }
 
     partial void OnSelectedCsvGroupChanged(string value)
@@ -167,11 +153,6 @@ public partial class ExtractionGridViewModel : ObservableObject
     }
 
     public List<ExtractionRow> GetRows() => _rows;
-
-    public List<ExtractionRow> GetRowsForGroup(string group)
-    {
-        return _groupRows.GetValueOrDefault(group, []);
-    }
 
     public DataTable? GetTableForGroup(string group)
     {
@@ -207,12 +188,13 @@ public partial class ExtractionGridViewModel : ObservableObject
     [RelayCommand]
     private void ClearResults()
     {
-        ResultsTable?.Clear();
+        ResultsTable = null;
         _rows.Clear();
         _groupTables.Clear();
-        _groupRows.Clear();
+        _headerToGroup.Clear();
         CsvGroups.Clear();
         HasResults = false;
         RowCount = 0;
+        ColumnCount = 0;
     }
 }

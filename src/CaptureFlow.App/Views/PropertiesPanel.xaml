@@ -21,6 +21,8 @@
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal" Margin="4,2">
                             <CheckBox IsChecked="{Binding Enabled}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="{Binding CsvGroup}" VerticalAlignment="Center" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,4,0" />
                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" />
                             <TextBlock Text="{Binding OutputHeader, StringFormat=' [{0}]'}"
                                        Foreground="{StaticResource TextSecondaryBrush}"
@@ -42,6 +44,16 @@
                     <TextBlock Text="Name" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" Padding="4,3" />
 
+                    <TextBlock Text="CSV Group" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                    <ComboBox IsEditable="True"
+                              Text="{Binding CsvGroup, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,2,0,6" Padding="4,3"
+                              ToolTip="Which CSV output this field belongs to (e.g. CSV 1, CSV 2)">
+                        <ComboBoxItem Content="CSV 1" />
+                        <ComboBoxItem Content="CSV 2" />
+                        <ComboBoxItem Content="CSV 3" />
+                    </ComboBox>
+
                     <TextBlock Text="Output Header" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <ComboBox IsEditable="True"
                               Text="{Binding OutputHeader, UpdateSourceTrigger=PropertyChanged}"
@@ -58,16 +70,6 @@
                     <TextBlock Text="Row Behaviour" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <ComboBox SelectedValue="{Binding RowTargetMode}" Margin="0,2,0,6" Padding="4,3"
                               ItemsSource="{Binding Source={x:Static models:RowTargetModeValues.All}}" />
-
-                    <TextBlock Text="CSV Group" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <ComboBox IsEditable="True"
-                              Text="{Binding CsvGroup, UpdateSourceTrigger=PropertyChanged}"
-                              Margin="0,2,0,6" Padding="4,3"
-                              ToolTip="Which CSV output this field belongs to (e.g. CSV 1, CSV 2)">
-                        <ComboBoxItem Content="CSV 1" />
-                        <ComboBoxItem Content="CSV 2" />
-                        <ComboBoxItem Content="CSV 3" />
-                    </ComboBox>
 
                     <TextBlock Text="Default Value" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
                     <TextBox Text="{Binding DefaultValue, UpdateSourceTrigger=PropertyChanged}" Margin="0,2,0,6" Padding="4,3" />

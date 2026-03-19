@@ -390,16 +390,21 @@ public partial class MainViewModel : ObservableObject
             IsProcessing = true;
             StatusMessage = "Extracting...";
 
+            var boxes = CaptureBoxes.ToList();
             var rows = await _extractionService.ExtractAsync(
                 CurrentDocument,
-                CaptureBoxes.ToList(),
+                boxes,
                 RepeatGroups.ToList());
 
-            _lastExtractionRows = rows;
+            if (ExtractionGrid.AutoClearOnExtract)
+                _lastExtractionRows = rows;
+            else
+                _lastExtractionRows.AddRange(rows);
+
             OnPropertyChanged(nameof(HasExtractionResults));
-            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName, CaptureBoxes.ToList());
+            ExtractionGrid.LoadResults(rows, CurrentDocument.FileName, boxes);
             RefreshCsvHeaders();
-            StatusMessage = $"Extracted {rows.Count} rows";
+            StatusMessage = $"Extracted {rows.Count} rows from {CurrentDocument.FileName}";
         }
         catch (Exception ex)
         {
@@ -460,7 +465,10 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            _lastExtractionRows = allRows;
+            if (ExtractionGrid.AutoClearOnExtract)
+                _lastExtractionRows = allRows;
+            else
+                _lastExtractionRows.AddRange(allRows);
             OnPropertyChanged(nameof(HasExtractionResults));
             // Collect all capture boxes across all docs for group detection
             var allBoxes = _documentCaptureBoxes.Values.SelectMany(b => b).ToList();
