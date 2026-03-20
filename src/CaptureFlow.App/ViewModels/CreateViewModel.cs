@@ -25,6 +25,7 @@ public interface IDesignerBridge
     Task<byte[]> GenerateSinglePdfAsync(string inputsJson);
     Task InsertMergeFieldAsync(string headerName);
     Task UpdateMergeFieldAsync(string fieldName, string propsJson);
+    Task ResetToBlankAsync();
     bool IsReady { get; }
     event Action? OnReady;
     event Action<int, int>? OnGenerationProgress;
@@ -306,8 +307,9 @@ public partial class CreateViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ClearAll()
+    private async Task ClearAll()
     {
+        // Reset CSV data
         _csvRows.Clear();
         CsvHeaders.Clear();
         InsertedMergeFields.Clear();
@@ -323,6 +325,14 @@ public partial class CreateViewModel : ObservableObject
         FieldCount = 0;
         Progress = 0;
         ProcessedRows = 0;
+        BaseDocumentPath = "";
+        BaseDocumentType = "";
+        TemplateFilePath = "";
+
+        // Reset designer to blank document
+        if (_designerBridge != null && _designerBridge.IsReady)
+            await _designerBridge.ResetToBlankAsync();
+
         StatusText = "Cleared";
     }
 

@@ -277,6 +277,12 @@
                     if (changed) {
                         initDesigner(template);
                     }
+                },
+
+                resetToBlank: function() {
+                    var template = { basePdf: B.BLANK_PDF, schemas: [[]] };
+                    initDesigner(template);
+                    postMessage({ type: 'templateLoaded' });
                 }
             };
 

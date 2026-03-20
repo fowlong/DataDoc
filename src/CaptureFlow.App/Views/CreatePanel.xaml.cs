@@ -254,6 +254,13 @@ public partial class CreatePanel : UserControl, IDesignerBridge
             $"window.pdfmeApi.insertMergeField('{escaped}')");
     }
 
+    public async Task ResetToBlankAsync()
+    {
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+        await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
+            "window.pdfmeApi.resetToBlank()");
+    }
+
     public async Task UpdateMergeFieldAsync(string fieldName, string propsJson)
     {
         await WaitForReadyAsync(TimeSpan.FromSeconds(30));
