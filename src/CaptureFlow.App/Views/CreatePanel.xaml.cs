@@ -12,6 +12,7 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 {
     private bool _isReady;
     private bool _initFailed;
+    private bool _initStarted;
     private string? _initError;
     private TaskCompletionSource? _readyTcs = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
@@ -28,9 +29,13 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Wire up the bridge
+        // Wire up the bridge (idempotent)
         if (DataContext is CreateViewModel vm)
             vm.DesignerBridge = this;
+
+        // Only initialize WebView2 once
+        if (_initStarted) return;
+        _initStarted = true;
 
         await InitWebViewAsync();
     }
@@ -93,11 +98,18 @@ public partial class CreatePanel : UserControl, IDesignerBridge
                     break;
 
                 case "templateChanged":
-                    if (root.TryGetProperty("fieldCount", out var fc))
+                    if (DataContext is CreateViewModel vm)
                     {
-                        var count = fc.GetInt32();
-                        if (DataContext is CreateViewModel vm)
-                            vm.UpdateFieldCount(count);
+                        if (root.TryGetProperty("fieldCount", out var fc))
+                            vm.UpdateFieldCount(fc.GetInt32());
+
+                        if (root.TryGetProperty("mergeFields", out var mf))
+                        {
+                            var fields = JsonSerializer.Deserialize<List<CreateViewModel.MergeFieldDto>>(
+                                mf.GetRawText(),
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+                            vm.UpdateMergeFields(fields);
+                        }
                     }
                     break;
 
@@ -240,6 +252,22 @@ public partial class CreatePanel : UserControl, IDesignerBridge
         var escaped = EscapeForJs(headerName);
         await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
             $"window.pdfmeApi.insertMergeField('{escaped}')");
+    }
+
+    public async Task ResetToBlankAsync()
+    {
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+        await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
+            "window.pdfmeApi.resetToBlank()");
+    }
+
+    public async Task UpdateMergeFieldAsync(string fieldName, string propsJson)
+    {
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+        var escaped = EscapeForJs(fieldName);
+        var escapedProps = EscapeForJs(propsJson);
+        await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
+            $"window.pdfmeApi.updateMergeField('{escaped}', '{escapedProps}')");
     }
 
     public async Task<byte[]> GenerateSinglePdfAsync(string inputsJson)

@@ -7,6 +7,9 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis" />
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsed" />
+        <conv:HexStringToBrushConverter x:Key="HexToBrush" />
+        <conv:HexStringToColorConverter x:Key="HexToColor" />
     </UserControl.Resources>
 
     <Grid>
@@ -18,102 +21,124 @@
 
         <!-- Left: Controls Panel -->
         <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="4">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="8">
-                    <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
-
-                    <!-- Base Document -->
-                    <TextBlock Text="Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
-                    <TextBlock Text="Load a PDF or DOCX as the document background"
-                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
-                    <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
-                            Command="{Binding LoadBaseDocumentCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding BaseDocumentPath}" FontSize="10" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding BaseDocumentPath}" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
-
-                    <!-- Merge Template -->
-                    <TextBlock Text="Merge Template" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
-                        Use the designer to place fields, or load a saved template. Merge fields from CSV data appear as coloured placeholders.
-                    </TextBlock>
-                    <TextBlock FontSize="11" Margin="0,0,0,4">
-                        <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
-                    </TextBlock>
+            <DockPanel>
+                <!-- Bottom-anchored: Generate/Clear buttons, progress, status -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,8">
                     <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Save Template" Style="{StaticResource ToolBarButton}"
-                                Command="{Binding SaveTemplateCommand}" Margin="0,0,2,0" Padding="8,4" />
-                        <Button Grid.Column="1" Content="Load Template" Style="{StaticResource ToolBarButton}"
-                                Command="{Binding LoadTemplateCommand}" Margin="2,0,0,0" Padding="8,4" />
-                    </Grid>
-                    <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-
-                    <!-- CSV Data Source -->
-                    <TextBlock Text="CSV Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <Button Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
-                            Command="{Binding LoadCsvCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding CsvFilePath}" FontSize="10" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"
-                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4" />
-
-                    <!-- CSV Preview (compact) -->
-                    <DataGrid ItemsSource="{Binding CsvPreviewTable}"
-                              AutoGenerateColumns="True" IsReadOnly="True"
-                              MaxHeight="120" FontSize="9"
-                              AlternatingRowBackground="#F8FAFC"
-                              HorizontalGridLinesBrush="#E2E8F0"
-                              VerticalGridLinesBrush="#E2E8F0"
-                              Margin="0,0,0,8" />
-
-                    <!-- Row Selection -->
-                    <TextBlock Text="Row Selection" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,2" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                        <RadioButton Content="All rows" IsChecked="{Binding UseAllRows}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <RadioButton Content="Specific rows:" IsChecked="{Binding UseSpecificRows}" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBox Text="{Binding RowSelectionPattern, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding UseSpecificRows}"
-                             Padding="4,3" Margin="0,2,0,2" />
-                    <TextBlock Text="e.g. 1,4 or 1-4 or 1,3-5,8" FontSize="9"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
-
-                    <!-- Output Settings -->
-                    <TextBlock Text="Output Settings" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
-                             Padding="4,3" Margin="0,2,0,2" />
-                    <TextBlock Text="Use {{RowNumber}}, {{FieldName}} tokens" FontSize="9"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
-
-                    <TextBlock Text="Output Directory" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <Grid Margin="0,2,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" Padding="4,3" IsReadOnly="True" />
-                        <Button Grid.Column="1" Content="..." Style="{StaticResource ToolBarButton}"
-                                Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
+                        <Button Grid.Column="0" Content="Generate All Documents" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding GenerateAllCommand}" HorizontalAlignment="Stretch" />
+                        <Button Grid.Column="1" Content="Clear" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ClearAllCommand}" Margin="4,0,0,0" Padding="12,4" />
                     </Grid>
-
-                    <!-- Generate -->
-                    <Button Content="Generate All Documents" Style="{StaticResource PrimaryButton}"
-                            Command="{Binding GenerateAllCommand}" HorizontalAlignment="Stretch" />
-
-                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="16" Margin="0,8,0,4"
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="16" Margin="0,0,0,4"
                                  Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}" />
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource SubHeaderText}"
-                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                               TextWrapping="Wrap" />
                 </StackPanel>
-            </ScrollViewer>
+
+                <!-- Scrollable content fills remaining space -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="8">
+                        <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
+
+                        <!-- Base Document -->
+                        <TextBlock Text="Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                        <TextBlock Text="Load a PDF or DOCX as the document background"
+                                   FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
+                        <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
+                                Command="{Binding LoadBaseDocumentCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding BaseDocumentPath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding BaseDocumentPath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
+
+                    <!-- Merge Template -->
+                    <Expander Header="Merge Template" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
+                                Use the designer to place fields, or load a saved template. Merge fields from CSV data appear as coloured placeholders.
+                            </TextBlock>
+                            <TextBlock FontSize="11" Margin="0,0,0,4">
+                                <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
+                                <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
+                            </TextBlock>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="Save Template" Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding SaveTemplateCommand}" Margin="0,0,2,0" Padding="8,4" />
+                                <Button Grid.Column="1" Content="Load Template" Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding LoadTemplateCommand}" Margin="2,0,0,0" Padding="8,4" />
+                            </Grid>
+                            <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- CSV Data Source -->
+                    <Expander Header="CSV Data Source" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <Button Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding LoadCsvCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding CsvFilePath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"
+                                       FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4" />
+
+                            <!-- CSV Preview (compact) -->
+                            <DataGrid ItemsSource="{Binding CsvPreviewTable}"
+                                      AutoGenerateColumns="True" IsReadOnly="True"
+                                      MaxHeight="120" FontSize="9"
+                                      AlternatingRowBackground="#F8FAFC"
+                                      HorizontalGridLinesBrush="#E2E8F0"
+                                      VerticalGridLinesBrush="#E2E8F0"
+                                      Margin="0,0,0,8" />
+
+                            <!-- Row Selection -->
+                            <TextBlock Text="Row Selection" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,2" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                <RadioButton Content="All rows" IsChecked="{Binding UseAllRows}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                <RadioButton Content="Specific rows:" IsChecked="{Binding UseSpecificRows}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBox Text="{Binding RowSelectionPattern, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding UseSpecificRows}"
+                                     Padding="4,3" Margin="0,2,0,2" />
+                            <TextBlock Text="e.g. 1,4 or 1-4 or 1,3-5,8" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- Output Settings -->
+                    <Expander Header="Output Settings" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="4,3" Margin="0,2,0,2" />
+                            <TextBlock Text="Use {{RowNumber}}, {{FieldName}} tokens" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
+
+                            <TextBlock Text="Output Directory" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" Padding="4,3" IsReadOnly="True" />
+                                <Button Grid.Column="1" Content="..." Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
         <!-- Centre: pdfme Designer (WebView2) -->
@@ -133,12 +158,137 @@
 
         <!-- Right: Merge Fields Panel -->
         <Border Grid.Column="2" Style="{StaticResource PanelBorder}" Margin="0,4,4,4"
-                Width="200"
+                Width="220"
                 Visibility="{Binding HasCsvHeaders, Converter={StaticResource BoolToVis}}">
             <DockPanel Margin="8">
                 <TextBlock DockPanel.Dock="Top" Text="Merge Fields" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" Text="Click Insert to place on document"
                            FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+                <!-- Per-Field Format Options (shown when a field is selected) -->
+                <Border DockPanel.Dock="Top" Background="{StaticResource PanelBackgroundBrush}"
+                        CornerRadius="4" Padding="6" Margin="0,0,0,8"
+                        Visibility="{Binding SelectedMergeField, Converter={StaticResource NullToCollapsed}}">
+                    <StackPanel>
+                        <TextBlock FontSize="10" FontWeight="SemiBold" Margin="0,0,0,6">
+                            <Run Text="Format: " /><Run Text="{Binding SelectedMergeField.Name, Mode=OneWay}" Foreground="#1E40AF" />
+                        </TextBlock>
+
+                        <!-- Font Size -->
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Size" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding SelectedMergeField.FontSize, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="3,2" FontSize="10" />
+                        </Grid>
+
+                        <!-- Output Colour label -->
+                        <TextBlock Text="Output Colour" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
+
+                        <!-- Current colour preview -->
+                        <Border Height="20" CornerRadius="3" Margin="0,0,0,4"
+                                BorderBrush="#CBD5E1" BorderThickness="1"
+                                Background="{Binding SelectedMergeField.OutputFontColor, Converter={StaticResource HexToBrush}}" />
+
+                        <!-- Preset Colours grid -->
+                        <ItemsControl ItemsSource="{Binding PresetColours}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Width="22" Height="22" Margin="1" Padding="0" Cursor="Hand"
+                                            Tag="{Binding Converter={StaticResource HexToBrush}}"
+                                            Command="{Binding DataContext.SetMergeFieldColourCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Width="22" Height="22" CornerRadius="2"
+                                                        BorderThickness="1" BorderBrush="#CBD5E1"
+                                                        Background="{TemplateBinding Tag}" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6" />
+                                                        <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Colour History -->
+                        <TextBlock Text="Recent" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,6,0,2" />
+                        <ItemsControl ItemsSource="{Binding ColourHistory}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Width="22" Height="22" Margin="1" Padding="0" Cursor="Hand"
+                                            Tag="{Binding Converter={StaticResource HexToBrush}}"
+                                            Command="{Binding DataContext.SetMergeFieldColourCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Width="22" Height="22" CornerRadius="2"
+                                                        BorderThickness="1" BorderBrush="#CBD5E1"
+                                                        Background="{TemplateBinding Tag}" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6" />
+                                                        <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Style toggles -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <CheckBox FontSize="10"
+                                      IsChecked="{Binding SelectedMergeField.Underline}"
+                                      ToolTip="Underline" Margin="0,0,10,0">
+                                <TextBlock Text="U" TextDecorations="Underline" />
+                            </CheckBox>
+                            <CheckBox FontSize="10"
+                                      IsChecked="{Binding SelectedMergeField.Strikethrough}"
+                                      ToolTip="Strikethrough">
+                                <TextBlock Text="S" TextDecorations="Strikethrough" />
+                            </CheckBox>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Inserted Merge Fields list -->
+                <TextBlock DockPanel.Dock="Top" Text="Placed Fields" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <ListBox DockPanel.Dock="Top" ItemsSource="{Binding InsertedMergeFields}"
+                         SelectedItem="{Binding SelectedMergeField}"
+                         MaxHeight="100" Margin="0,0,0,8" FontSize="10" BorderThickness="0"
+                         Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Foreground="#1E40AF" Padding="2,1" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Available CSV Headers with Insert buttons -->
+                <TextBlock DockPanel.Dock="Top" Text="Available Headers" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding CsvHeaders}">
                         <ItemsControl.ItemTemplate>
