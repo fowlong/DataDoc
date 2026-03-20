@@ -57,75 +57,84 @@
                                    Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
 
                     <!-- Merge Template -->
-                    <TextBlock Text="Merge Template" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
-                        Use the designer to place fields, or load a saved template. Merge fields from CSV data appear as coloured placeholders.
-                    </TextBlock>
-                    <TextBlock FontSize="11" Margin="0,0,0,4">
-                        <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
-                    </TextBlock>
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Save Template" Style="{StaticResource ToolBarButton}"
-                                Command="{Binding SaveTemplateCommand}" Margin="0,0,2,0" Padding="8,4" />
-                        <Button Grid.Column="1" Content="Load Template" Style="{StaticResource ToolBarButton}"
-                                Command="{Binding LoadTemplateCommand}" Margin="2,0,0,0" Padding="8,4" />
-                    </Grid>
-                    <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                    <Expander Header="Merge Template" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap">
+                                Use the designer to place fields, or load a saved template. Merge fields from CSV data appear as coloured placeholders.
+                            </TextBlock>
+                            <TextBlock FontSize="11" Margin="0,0,0,4">
+                                <Run Text="Fields: " Foreground="{StaticResource TextSecondaryBrush}" />
+                                <Run Text="{Binding FieldCount, Mode=OneWay}" FontWeight="SemiBold" />
+                            </TextBlock>
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Content="Save Template" Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding SaveTemplateCommand}" Margin="0,0,2,0" Padding="8,4" />
+                                <Button Grid.Column="1" Content="Load Template" Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding LoadTemplateCommand}" Margin="2,0,0,0" Padding="8,4" />
+                            </Grid>
+                            <TextBlock Text="{Binding TemplateFilePath}" FontSize="9" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Expander>
 
                     <!-- CSV Data Source -->
-                    <TextBlock Text="CSV Data Source" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <Button Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
-                            Command="{Binding LoadCsvCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding CsvFilePath}" FontSize="10" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"
-                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4" />
+                    <Expander Header="CSV Data Source" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <Button Content="Load CSV File..." Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding LoadCsvCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding CsvFilePath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding CsvFilePath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding TotalRows, StringFormat='{}{0} rows loaded'}"
+                                       FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,4" />
 
-                    <!-- CSV Preview (compact) -->
-                    <DataGrid ItemsSource="{Binding CsvPreviewTable}"
-                              AutoGenerateColumns="True" IsReadOnly="True"
-                              MaxHeight="120" FontSize="9"
-                              AlternatingRowBackground="#F8FAFC"
-                              HorizontalGridLinesBrush="#E2E8F0"
-                              VerticalGridLinesBrush="#E2E8F0"
-                              Margin="0,0,0,8" />
+                            <!-- CSV Preview (compact) -->
+                            <DataGrid ItemsSource="{Binding CsvPreviewTable}"
+                                      AutoGenerateColumns="True" IsReadOnly="True"
+                                      MaxHeight="120" FontSize="9"
+                                      AlternatingRowBackground="#F8FAFC"
+                                      HorizontalGridLinesBrush="#E2E8F0"
+                                      VerticalGridLinesBrush="#E2E8F0"
+                                      Margin="0,0,0,8" />
 
-                    <!-- Row Selection -->
-                    <TextBlock Text="Row Selection" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,2" />
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
-                        <RadioButton Content="All rows" IsChecked="{Binding UseAllRows}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <RadioButton Content="Specific rows:" IsChecked="{Binding UseSpecificRows}" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBox Text="{Binding RowSelectionPattern, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding UseSpecificRows}"
-                             Padding="4,3" Margin="0,2,0,2" />
-                    <TextBlock Text="e.g. 1,4 or 1-4 or 1,3-5,8" FontSize="9"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                            <!-- Row Selection -->
+                            <TextBlock Text="Row Selection" FontSize="10" FontWeight="SemiBold" Margin="0,4,0,2" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                <RadioButton Content="All rows" IsChecked="{Binding UseAllRows}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                <RadioButton Content="Specific rows:" IsChecked="{Binding UseSpecificRows}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBox Text="{Binding RowSelectionPattern, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding UseSpecificRows}"
+                                     Padding="4,3" Margin="0,2,0,2" />
+                            <TextBlock Text="e.g. 1,4 or 1-4 or 1,3-5,8" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Expander>
 
                     <!-- Output Settings -->
-                    <TextBlock Text="Output Settings" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
-                    <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
-                             Padding="4,3" Margin="0,2,0,2" />
-                    <TextBlock Text="Use {{RowNumber}}, {{FieldName}} tokens" FontSize="9"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
+                    <Expander Header="Output Settings" IsExpanded="False" Margin="0,4,0,4">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Text="File Name Pattern" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <TextBox Text="{Binding FileNamePattern, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="4,3" Margin="0,2,0,2" />
+                            <TextBlock Text="Use {{RowNumber}}, {{FieldName}} tokens" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,6" />
 
-                    <TextBlock Text="Output Directory" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <Grid Margin="0,2,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" Padding="4,3" IsReadOnly="True" />
-                        <Button Grid.Column="1" Content="..." Style="{StaticResource ToolBarButton}"
-                                Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
-                    </Grid>
+                            <TextBlock Text="Output Directory" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" />
+                            <Grid Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding OutputDirectory}" Padding="4,3" IsReadOnly="True" />
+                                <Button Grid.Column="1" Content="..." Style="{StaticResource ToolBarButton}"
+                                        Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
 
                     </StackPanel>
                 </ScrollViewer>
