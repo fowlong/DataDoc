@@ -21,20 +21,40 @@
 
         <!-- Left: Controls Panel -->
         <Border Grid.Column="0" Style="{StaticResource PanelBorder}" Margin="4">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="8">
-                    <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
+            <DockPanel>
+                <!-- Bottom-anchored: Generate/Clear buttons, progress, status -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,8">
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Generate All Documents" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding GenerateAllCommand}" HorizontalAlignment="Stretch" />
+                        <Button Grid.Column="1" Content="Clear" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding ClearAllCommand}" Margin="4,0,0,0" Padding="12,4" />
+                    </Grid>
+                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="16" Margin="0,0,0,4"
+                                 Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource SubHeaderText}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
 
-                    <!-- Base Document -->
-                    <TextBlock Text="Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
-                    <TextBlock Text="Load a PDF or DOCX as the document background"
-                               FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
-                    <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
-                            Command="{Binding LoadBaseDocumentCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
-                    <TextBlock Text="{Binding BaseDocumentPath}" FontSize="10" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding BaseDocumentPath}" Foreground="{StaticResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
+                <!-- Scrollable content fills remaining space -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="8">
+                        <TextBlock Text="Create: PDF from Template" Style="{StaticResource HeaderText}" Margin="0,0,0,12" />
+
+                        <!-- Base Document -->
+                        <TextBlock Text="Base Document" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
+                        <TextBlock Text="Load a PDF or DOCX as the document background"
+                                   FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
+                        <Button Content="Load Base Document..." Style="{StaticResource SecondaryButton}"
+                                Command="{Binding LoadBaseDocumentCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding BaseDocumentPath}" FontSize="10" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding BaseDocumentPath}" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock Text="{Binding BaseDocumentType}" FontSize="10"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,8" />
 
                     <!-- Merge Template -->
                     <TextBlock Text="Merge Template" FontWeight="SemiBold" FontSize="12" Margin="0,8,0,4" />
@@ -107,16 +127,9 @@
                                 Command="{Binding SelectOutputDirectoryCommand}" Width="30" Margin="4,0,0,0" />
                     </Grid>
 
-                    <!-- Generate -->
-                    <Button Content="Generate All Documents" Style="{StaticResource PrimaryButton}"
-                            Command="{Binding GenerateAllCommand}" HorizontalAlignment="Stretch" />
-
-                    <ProgressBar Value="{Binding Progress}" Maximum="100" Height="16" Margin="0,8,0,4"
-                                 Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}" />
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource SubHeaderText}"
-                               TextWrapping="Wrap" Margin="0,4,0,0" />
-                </StackPanel>
-            </ScrollViewer>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
         <!-- Centre: pdfme Designer (WebView2) -->

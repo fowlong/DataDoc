@@ -306,6 +306,27 @@ public partial class CreateViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ClearAll()
+    {
+        _csvRows.Clear();
+        CsvHeaders.Clear();
+        InsertedMergeFields.Clear();
+        SelectedMergeField = null;
+        CsvFilePath = "";
+        TotalRows = 0;
+        HasCsvHeaders = false;
+        CsvPreviewTable = null;
+        RowSelectionPattern = "";
+        UseAllRows = true;
+        OutputDirectory = "";
+        FileNamePattern = "output_{{RowNumber}}";
+        FieldCount = 0;
+        Progress = 0;
+        ProcessedRows = 0;
+        StatusText = "Cleared";
+    }
+
+    [RelayCommand]
     private void SelectOutputDirectory()
     {
         var dialog = new OpenFolderDialog

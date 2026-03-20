@@ -75,70 +75,86 @@
             </StackPanel>
         </Border>
 
-        <!-- Main Content -->
-        <TabControl Grid.Row="2" Margin="0" BorderThickness="0"
-                    SelectedIndex="{Binding SelectedTabIndex}">
+        <!-- Main Content — Tab headers for navigation, content panels in a Grid with visibility binding -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <!-- Extract Tab -->
-            <TabItem Header="Extract">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="250" MinWidth="200" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" MinWidth="400" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="280" MinWidth="220" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="3*" MinHeight="200" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="2*" MinHeight="150" />
-                    </Grid.RowDefinitions>
+            <!-- Tab Headers only — content is rendered separately below for persistence -->
+            <TabControl Grid.Row="0" Margin="0" BorderThickness="0" Padding="0"
+                        SelectedIndex="{Binding SelectedTabIndex}"
+                        x:Name="MainTabControl"
+                        SelectionChanged="MainTabControl_SelectionChanged">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <TabPanel IsItemsHost="True" />
+                    </ControlTemplate>
+                </TabControl.Template>
+                <TabItem Header="Extract" />
+                <TabItem Header="Create (PDF from Template)" />
+                <TabItem Header="Templates" />
+            </TabControl>
 
-                    <!-- Left Panel: Source Files -->
-                    <Border Grid.Column="0" Grid.RowSpan="3" Style="{StaticResource PanelBorder}" Margin="4">
-                        <views:SourcePanel DataContext="{Binding}" />
-                    </Border>
+            <!-- Tab Content — all panels stay in visual tree, visibility toggled -->
 
-                    <GridSplitter Grid.Column="1" Grid.RowSpan="3" Width="4"
-                                  HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                                  Background="Transparent" />
+            <!-- Extract Tab Content -->
+            <Grid Grid.Row="1" x:Name="ExtractTabContent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250" MinWidth="200" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="400" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="280" MinWidth="220" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="3*" MinHeight="200" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="2*" MinHeight="150" />
+                </Grid.RowDefinitions>
 
-                    <!-- Center: Document Preview with Overlay -->
-                    <Border Grid.Column="2" Grid.Row="0" Style="{StaticResource PanelBorder}" Margin="4">
-                        <controls:DocumentPreviewCanvas DataContext="{Binding Preview}" />
-                    </Border>
+                <!-- Left Panel: Source Files -->
+                <Border Grid.Column="0" Grid.RowSpan="3" Style="{StaticResource PanelBorder}" Margin="4">
+                    <views:SourcePanel DataContext="{Binding}" />
+                </Border>
 
-                    <GridSplitter Grid.Column="2" Grid.Row="1" Height="4"
-                                  HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                  Background="Transparent" />
+                <GridSplitter Grid.Column="1" Grid.RowSpan="3" Width="4"
+                              HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                              Background="Transparent" />
 
-                    <!-- Bottom Center: Results Grid -->
-                    <Border Grid.Column="2" Grid.Row="2" Style="{StaticResource PanelBorder}" Margin="4">
-                        <views:ExtractionGridPanel DataContext="{Binding ExtractionGrid}" />
-                    </Border>
+                <!-- Center: Document Preview with Overlay -->
+                <Border Grid.Column="2" Grid.Row="0" Style="{StaticResource PanelBorder}" Margin="4">
+                    <controls:DocumentPreviewCanvas DataContext="{Binding Preview}" />
+                </Border>
 
-                    <GridSplitter Grid.Column="3" Grid.RowSpan="3" Width="4"
-                                  HorizontalAlignment="Center" VerticalAlignment="Stretch"
-                                  Background="Transparent" />
+                <GridSplitter Grid.Column="2" Grid.Row="1" Height="4"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                              Background="Transparent" />
 
-                    <!-- Right Panel: Properties Inspector -->
-                    <Border Grid.Column="4" Grid.RowSpan="3" Style="{StaticResource PanelBorder}" Margin="4">
-                        <views:PropertiesPanel DataContext="{Binding}" />
-                    </Border>
-                </Grid>
-            </TabItem>
+                <!-- Bottom Center: Results Grid -->
+                <Border Grid.Column="2" Grid.Row="2" Style="{StaticResource PanelBorder}" Margin="4">
+                    <views:ExtractionGridPanel DataContext="{Binding ExtractionGrid}" />
+                </Border>
 
-            <!-- Create Tab -->
-            <TabItem Header="Create (PDF from Template)">
-                <views:CreatePanel DataContext="{Binding Create}" />
-            </TabItem>
+                <GridSplitter Grid.Column="3" Grid.RowSpan="3" Width="4"
+                              HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                              Background="Transparent" />
 
-            <!-- Templates Tab -->
-            <TabItem Header="Templates">
-                <views:TemplateManagerPanel DataContext="{Binding TemplateManager}" />
-            </TabItem>
-        </TabControl>
+                <!-- Right Panel: Properties Inspector -->
+                <Border Grid.Column="4" Grid.RowSpan="3" Style="{StaticResource PanelBorder}" Margin="4">
+                    <views:PropertiesPanel DataContext="{Binding}" />
+                </Border>
+            </Grid>
+
+            <!-- Create Tab Content -->
+            <views:CreatePanel Grid.Row="1" DataContext="{Binding Create}"
+                               x:Name="CreateTabContent" />
+
+            <!-- Templates Tab Content -->
+            <views:TemplateManagerPanel Grid.Row="1" DataContext="{Binding TemplateManager}"
+                                         x:Name="TemplatesTabContent" />
+        </Grid>
 
         <!-- Status Bar -->
         <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}"

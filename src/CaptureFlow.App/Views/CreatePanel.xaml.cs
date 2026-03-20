@@ -12,6 +12,7 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 {
     private bool _isReady;
     private bool _initFailed;
+    private bool _initStarted;
     private string? _initError;
     private TaskCompletionSource? _readyTcs = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<string>> _pendingRequests = new();
@@ -28,9 +29,13 @@ public partial class CreatePanel : UserControl, IDesignerBridge
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // Wire up the bridge
+        // Wire up the bridge (idempotent)
         if (DataContext is CreateViewModel vm)
             vm.DesignerBridge = this;
+
+        // Only initialize WebView2 once
+        if (_initStarted) return;
+        _initStarted = true;
 
         await InitWebViewAsync();
     }
