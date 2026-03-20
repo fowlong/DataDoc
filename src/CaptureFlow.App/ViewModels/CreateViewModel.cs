@@ -264,7 +264,14 @@ public partial class CreateViewModel : ObservableObject
         try
         {
             var templateJson = await _designerBridge.GetTemplateJsonAsync();
-            await File.WriteAllTextAsync(dialog.FileName, templateJson);
+            var envelope = new
+            {
+                template = JsonSerializer.Deserialize<JsonElement>(templateJson),
+                csvFilePath = string.IsNullOrEmpty(CsvFilePath) || CsvFilePath == "(extraction results)"
+                    ? null : CsvFilePath
+            };
+            var envelopeJson = JsonSerializer.Serialize(envelope, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(dialog.FileName, envelopeJson);
             TemplateFilePath = dialog.FileName;
             StatusText = $"Template saved: {Path.GetFileName(dialog.FileName)}";
         }
@@ -294,10 +301,39 @@ public partial class CreateViewModel : ObservableObject
 
         try
         {
-            var templateJson = await File.ReadAllTextAsync(dialog.FileName);
+            var fileJson = await File.ReadAllTextAsync(dialog.FileName);
+            using var doc = JsonDocument.Parse(fileJson);
+            var root = doc.RootElement;
+
+            // Detect envelope format (has "template" property) vs raw pdfme template
+            string templateJson;
+            if (root.TryGetProperty("template", out var templateElement))
+            {
+                templateJson = templateElement.GetRawText();
+
+                // Auto-load associated CSV if present and file exists
+                if (root.TryGetProperty("csvFilePath", out var csvProp) &&
+                    csvProp.ValueKind == JsonValueKind.String)
+                {
+                    var csvPath = csvProp.GetString();
+                    if (!string.IsNullOrEmpty(csvPath) && File.Exists(csvPath))
+                    {
+                        await LoadCsvDataAsync(csvPath);
+                        CsvFilePath = csvPath;
+                        StatusText = $"Template loaded with CSV: {Path.GetFileName(csvPath)}";
+                    }
+                }
+            }
+            else
+            {
+                // Legacy/raw pdfme template — use as-is
+                templateJson = fileJson;
+            }
+
             await _designerBridge.SetTemplateJsonAsync(templateJson);
             TemplateFilePath = dialog.FileName;
-            StatusText = $"Template loaded: {Path.GetFileName(dialog.FileName)}";
+            if (string.IsNullOrEmpty(StatusText) || !StatusText.Contains("CSV"))
+                StatusText = $"Template loaded: {Path.GetFileName(dialog.FileName)}";
         }
         catch (Exception ex)
         {
