@@ -93,11 +93,18 @@ public partial class CreatePanel : UserControl, IDesignerBridge
                     break;
 
                 case "templateChanged":
-                    if (root.TryGetProperty("fieldCount", out var fc))
+                    if (DataContext is CreateViewModel vm)
                     {
-                        var count = fc.GetInt32();
-                        if (DataContext is CreateViewModel vm)
-                            vm.UpdateFieldCount(count);
+                        if (root.TryGetProperty("fieldCount", out var fc))
+                            vm.UpdateFieldCount(fc.GetInt32());
+
+                        if (root.TryGetProperty("mergeFields", out var mf))
+                        {
+                            var fields = JsonSerializer.Deserialize<List<CreateViewModel.MergeFieldDto>>(
+                                mf.GetRawText(),
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+                            vm.UpdateMergeFields(fields);
+                        }
                     }
                     break;
 
@@ -234,13 +241,21 @@ public partial class CreatePanel : UserControl, IDesignerBridge
         return JsonSerializer.Deserialize<List<string>>(jsonString) ?? [];
     }
 
-    public async Task InsertMergeFieldAsync(string headerName, string optionsJson)
+    public async Task InsertMergeFieldAsync(string headerName)
     {
         await WaitForReadyAsync(TimeSpan.FromSeconds(30));
         var escaped = EscapeForJs(headerName);
-        var escapedOpts = EscapeForJs(optionsJson);
         await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
-            $"window.pdfmeApi.insertMergeField('{escaped}', '{escapedOpts}')");
+            $"window.pdfmeApi.insertMergeField('{escaped}')");
+    }
+
+    public async Task UpdateMergeFieldAsync(string fieldName, string propsJson)
+    {
+        await WaitForReadyAsync(TimeSpan.FromSeconds(30));
+        var escaped = EscapeForJs(fieldName);
+        var escapedProps = EscapeForJs(propsJson);
+        await DesignerWebView.CoreWebView2.ExecuteScriptAsync(
+            $"window.pdfmeApi.updateMergeField('{escaped}', '{escapedProps}')");
     }
 
     public async Task<byte[]> GenerateSinglePdfAsync(string inputsJson)

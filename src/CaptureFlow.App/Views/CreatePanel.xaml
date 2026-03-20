@@ -7,6 +7,9 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:InverseBoolToVisibilityConverter x:Key="InvBoolToVis" />
+        <conv:NullToVisibilityConverter x:Key="NullToCollapsed" />
+        <conv:HexStringToBrushConverter x:Key="HexToBrush" />
+        <conv:HexStringToColorConverter x:Key="HexToColor" />
     </UserControl.Resources>
 
     <Grid>
@@ -133,72 +136,115 @@
 
         <!-- Right: Merge Fields Panel -->
         <Border Grid.Column="2" Style="{StaticResource PanelBorder}" Margin="0,4,4,4"
-                Width="210"
+                Width="220"
                 Visibility="{Binding HasCsvHeaders, Converter={StaticResource BoolToVis}}">
             <DockPanel Margin="8">
                 <TextBlock DockPanel.Dock="Top" Text="Merge Fields" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" Text="Click Insert to place on document"
                            FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
-                <!-- Output Format Options -->
+                <!-- Per-Field Format Options (shown when a field is selected) -->
                 <Border DockPanel.Dock="Top" Background="{StaticResource PanelBackgroundBrush}"
-                        CornerRadius="4" Padding="6" Margin="0,0,0,8">
+                        CornerRadius="4" Padding="6" Margin="0,0,0,8"
+                        Visibility="{Binding SelectedMergeField, Converter={StaticResource NullToCollapsed}}">
                     <StackPanel>
-                        <TextBlock Text="Output Format" FontWeight="SemiBold" FontSize="10" Margin="0,0,0,4" />
+                        <TextBlock FontSize="10" FontWeight="SemiBold" Margin="0,0,0,6">
+                            <Run Text="Format: " /><Run Text="{Binding SelectedMergeField.Name, Mode=OneWay}" Foreground="#1E40AF" />
+                        </TextBlock>
 
                         <!-- Font Size -->
-                        <Grid Margin="0,0,0,4">
+                        <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="40" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Size" FontSize="10" VerticalAlignment="Center"
                                        Foreground="{StaticResource TextSecondaryBrush}" />
                             <TextBox Grid.Column="1"
-                                     Text="{Binding MergeFieldFontSize, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{Binding SelectedMergeField.FontSize, UpdateSourceTrigger=PropertyChanged}"
                                      Padding="3,2" FontSize="10" />
                         </Grid>
 
-                        <!-- Font Colour -->
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Colour" FontSize="10" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
-                            <TextBox Grid.Column="1"
-                                     Text="{Binding MergeFieldFontColor, UpdateSourceTrigger=PropertyChanged}"
-                                     Padding="3,2" FontSize="10"
-                                     ToolTip="Hex colour for output text, e.g. #000000" />
-                        </Grid>
+                        <!-- Output Colour label -->
+                        <TextBlock Text="Output Colour" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4" />
 
-                        <!-- Alignment -->
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="50" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Align" FontSize="10" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
-                            <ComboBox Grid.Column="1"
-                                      SelectedValue="{Binding MergeFieldAlignment}"
-                                      Padding="3,2" FontSize="10">
-                                <ComboBoxItem Content="left" IsSelected="True" />
-                                <ComboBoxItem Content="center" />
-                                <ComboBoxItem Content="right" />
-                            </ComboBox>
-                        </Grid>
+                        <!-- Current colour preview -->
+                        <Border Height="20" CornerRadius="3" Margin="0,0,0,4"
+                                BorderBrush="#CBD5E1" BorderThickness="1"
+                                Background="{Binding SelectedMergeField.OutputFontColor, Converter={StaticResource HexToBrush}}" />
+
+                        <!-- Preset Colours grid -->
+                        <ItemsControl ItemsSource="{Binding PresetColours}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Width="22" Height="22" Margin="1" Padding="0" Cursor="Hand"
+                                            Tag="{Binding Converter={StaticResource HexToBrush}}"
+                                            Command="{Binding DataContext.SetMergeFieldColourCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Width="22" Height="22" CornerRadius="2"
+                                                        BorderThickness="1" BorderBrush="#CBD5E1"
+                                                        Background="{TemplateBinding Tag}" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6" />
+                                                        <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Colour History -->
+                        <TextBlock Text="Recent" FontSize="9" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,6,0,2" />
+                        <ItemsControl ItemsSource="{Binding ColourHistory}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Width="22" Height="22" Margin="1" Padding="0" Cursor="Hand"
+                                            Tag="{Binding Converter={StaticResource HexToBrush}}"
+                                            Command="{Binding DataContext.SetMergeFieldColourCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Width="22" Height="22" CornerRadius="2"
+                                                        BorderThickness="1" BorderBrush="#CBD5E1"
+                                                        Background="{TemplateBinding Tag}" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#3B82F6" />
+                                                        <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
                         <!-- Style toggles -->
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                             <CheckBox FontSize="10"
-                                      IsChecked="{Binding MergeFieldUnderline}"
+                                      IsChecked="{Binding SelectedMergeField.Underline}"
                                       ToolTip="Underline" Margin="0,0,10,0">
                                 <TextBlock Text="U" TextDecorations="Underline" />
                             </CheckBox>
                             <CheckBox FontSize="10"
-                                      IsChecked="{Binding MergeFieldStrikethrough}"
+                                      IsChecked="{Binding SelectedMergeField.Strikethrough}"
                                       ToolTip="Strikethrough">
                                 <TextBlock Text="S" TextDecorations="Strikethrough" />
                             </CheckBox>
@@ -206,7 +252,21 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Field List with Insert buttons -->
+                <!-- Inserted Merge Fields list -->
+                <TextBlock DockPanel.Dock="Top" Text="Placed Fields" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <ListBox DockPanel.Dock="Top" ItemsSource="{Binding InsertedMergeFields}"
+                         SelectedItem="{Binding SelectedMergeField}"
+                         MaxHeight="100" Margin="0,0,0,8" FontSize="10" BorderThickness="0"
+                         Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Foreground="#1E40AF" Padding="2,1" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Available CSV Headers with Insert buttons -->
+                <TextBlock DockPanel.Dock="Top" Text="Available Headers" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding CsvHeaders}">
                         <ItemsControl.ItemTemplate>

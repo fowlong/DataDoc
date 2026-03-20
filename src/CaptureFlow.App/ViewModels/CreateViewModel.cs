@@ -23,7 +23,8 @@ public interface IDesignerBridge
     Task SetTemplateJsonAsync(string json);
     Task<List<string>> GetFieldNamesAsync();
     Task<byte[]> GenerateSinglePdfAsync(string inputsJson);
-    Task InsertMergeFieldAsync(string headerName, string optionsJson);
+    Task InsertMergeFieldAsync(string headerName);
+    Task UpdateMergeFieldAsync(string fieldName, string propsJson);
     bool IsReady { get; }
     event Action? OnReady;
     event Action<int, int>? OnGenerationProgress;
@@ -52,15 +53,19 @@ public partial class CreateViewModel : ObservableObject
     [ObservableProperty] private bool _useSpecificRows;
     [ObservableProperty] private string _rowSelectionPattern = "";
     [ObservableProperty] private bool _hasCsvHeaders;
-
-    // Merge field format options (applied on insert, used for output)
-    [ObservableProperty] private double _mergeFieldFontSize = 11;
-    [ObservableProperty] private string _mergeFieldFontColor = "#000000";
-    [ObservableProperty] private string _mergeFieldAlignment = "left";
-    [ObservableProperty] private bool _mergeFieldUnderline;
-    [ObservableProperty] private bool _mergeFieldStrikethrough;
+    [ObservableProperty] private MergeFieldItem? _selectedMergeField;
 
     public ObservableCollection<string> CsvHeaders { get; } = [];
+    public ObservableCollection<MergeFieldItem> InsertedMergeFields { get; } = [];
+    public ObservableCollection<string> ColourHistory { get; } = ["#000000", "#FFFFFF"];
+
+    public static IReadOnlyList<string> PresetColours { get; } =
+    [
+        "#000000", "#333333", "#666666", "#999999", "#CCCCCC", "#FFFFFF",
+        "#B71C1C", "#E53935", "#FF5252", "#1B5E20", "#43A047", "#66BB6A",
+        "#0D47A1", "#1E88E5", "#42A5F5", "#E65100", "#FB8C00", "#FFA726",
+        "#4A148C", "#8E24AA", "#AB47BC", "#3E2723", "#6D4C41", "#8D6E63"
+    ];
 
     private List<Dictionary<string, string>> _csvRows = [];
     private IDesignerBridge? _designerBridge;
@@ -473,24 +478,63 @@ public partial class CreateViewModel : ObservableObject
             return;
         }
 
-        var options = new MergeFieldOptions
-        {
-            FontSize = MergeFieldFontSize,
-            FontColor = MergeFieldFontColor,
-            Alignment = MergeFieldAlignment,
-            Underline = MergeFieldUnderline,
-            Strikethrough = MergeFieldStrikethrough
-        };
-        var optionsJson = JsonSerializer.Serialize(options, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        await _designerBridge.InsertMergeFieldAsync(headerName, optionsJson);
+        await _designerBridge.InsertMergeFieldAsync(headerName);
         StatusText = $"Inserted merge field: {headerName}";
     }
 
-    public class MergeFieldOptions
+    /// <summary>
+    /// Called from code-behind when templateChanged includes merge field list.
+    /// </summary>
+    public void UpdateMergeFields(List<MergeFieldDto> fields)
     {
+        var selectedName = SelectedMergeField?.Name;
+        InsertedMergeFields.Clear();
+        foreach (var f in fields)
+        {
+            var item = new MergeFieldItem(f.Name, f.FontSize, f.OutputFontColor, f.Underline, f.Strikethrough);
+            item.PropertyChanged += OnMergeFieldPropertyChanged;
+            InsertedMergeFields.Add(item);
+        }
+        // Re-select previously selected field
+        if (selectedName != null)
+            SelectedMergeField = InsertedMergeFields.FirstOrDefault(f => f.Name == selectedName);
+    }
+
+    private async void OnMergeFieldPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (sender is not MergeFieldItem item || _designerBridge == null || !_designerBridge.IsReady)
+            return;
+
+        // Track colour history
+        if (e.PropertyName == nameof(MergeFieldItem.OutputFontColor) && !ColourHistory.Contains(item.OutputFontColor))
+        {
+            ColourHistory.Insert(0, item.OutputFontColor);
+            while (ColourHistory.Count > 12)
+                ColourHistory.RemoveAt(ColourHistory.Count - 1);
+        }
+
+        var props = JsonSerializer.Serialize(new
+        {
+            fontSize = item.FontSize,
+            outputFontColor = item.OutputFontColor,
+            underline = item.Underline,
+            strikethrough = item.Strikethrough
+        });
+        await _designerBridge.UpdateMergeFieldAsync(item.Name, props);
+    }
+
+    [RelayCommand]
+    private void SetMergeFieldColour(string? colour)
+    {
+        if (SelectedMergeField != null && colour != null)
+            SelectedMergeField.OutputFontColor = colour;
+    }
+
+    public class MergeFieldDto
+    {
+        public string Name { get; set; } = "";
         public double FontSize { get; set; } = 11;
-        public string FontColor { get; set; } = "#000000";
-        public string Alignment { get; set; } = "left";
+        public string OutputFontColor { get; set; } = "#000000";
         public bool Underline { get; set; }
         public bool Strikethrough { get; set; }
     }
@@ -561,5 +605,24 @@ public partial class CreateViewModel : ObservableObject
         while (File.Exists(newPath));
 
         return newPath;
+    }
+}
+
+public partial class MergeFieldItem : ObservableObject
+{
+    public string Name { get; }
+
+    [ObservableProperty] private double _fontSize;
+    [ObservableProperty] private string _outputFontColor;
+    [ObservableProperty] private bool _underline;
+    [ObservableProperty] private bool _strikethrough;
+
+    public MergeFieldItem(string name, double fontSize, string outputFontColor, bool underline, bool strikethrough)
+    {
+        Name = name;
+        _fontSize = fontSize;
+        _outputFontColor = outputFontColor;
+        _underline = underline;
+        _strikethrough = strikethrough;
     }
 }

@@ -111,7 +111,21 @@
 
                 designer.onChangeTemplate(function(t) {
                     var fieldCount = t.schemas ? t.schemas.flat().length : 0;
-                    postMessage({ type: 'templateChanged', fieldCount: fieldCount });
+                    var mergeFields = [];
+                    if (t.schemas) {
+                        t.schemas.flat().forEach(function(s) {
+                            if (s.type === 'text' && s.backgroundColor === '#dbeafe') {
+                                mergeFields.push({
+                                    name: s.name,
+                                    fontSize: s.fontSize,
+                                    outputFontColor: s._outputFontColor || '#000000',
+                                    underline: s.underline || false,
+                                    strikethrough: s.strikethrough || false
+                                });
+                            }
+                        });
+                    }
+                    postMessage({ type: 'templateChanged', fieldCount: fieldCount, mergeFields: mergeFields });
                 });
             }
 
@@ -190,14 +204,12 @@
                     return template.schemas ? template.schemas.length : 1;
                 },
 
-                insertMergeField: function(headerName, optionsJson) {
+                insertMergeField: function(headerName) {
                     if (!designer) return;
-                    var opts = optionsJson ? JSON.parse(optionsJson) : {};
                     var template = designer.getTemplate();
                     if (!template.schemas || template.schemas.length === 0) {
                         template.schemas = [[]];
                     }
-                    // Insert on the first page
                     var pageSchemas = template.schemas[0];
                     var field = {
                         name: headerName,
@@ -207,24 +219,64 @@
                         width: 60,
                         height: 10,
                         rotate: 0,
-                        alignment: opts.alignment || 'left',
+                        alignment: 'left',
                         verticalAlignment: 'top',
-                        fontSize: opts.fontSize || 11,
+                        fontSize: 11,
                         lineHeight: 1,
                         characterSpacing: 0,
                         fontColor: '#1e40af',
                         backgroundColor: '#dbeafe',
-                        // Store the actual output colour as a custom property
-                        // Survives in the template JSON and is used at generation time
-                        _outputFontColor: opts.fontColor || '#000000',
+                        _outputFontColor: '#000000',
                         opacity: 1,
-                        strikethrough: opts.strikethrough || false,
-                        underline: opts.underline || false
+                        strikethrough: false,
+                        underline: false
                     };
                     pageSchemas.push(field);
                     template.schemas[0] = pageSchemas;
                     initDesigner(template);
-                    postMessage({ type: 'templateChanged', fieldCount: template.schemas.flat().length });
+                },
+
+                getMergeFields: function() {
+                    if (!designer) return '[]';
+                    var template = designer.getTemplate();
+                    var fields = [];
+                    if (template.schemas) {
+                        template.schemas.flat().forEach(function(s) {
+                            if (s.type === 'text' && s.backgroundColor === '#dbeafe') {
+                                fields.push({
+                                    name: s.name,
+                                    fontSize: s.fontSize,
+                                    outputFontColor: s._outputFontColor || '#000000',
+                                    underline: s.underline || false,
+                                    strikethrough: s.strikethrough || false
+                                });
+                            }
+                        });
+                    }
+                    return JSON.stringify(fields);
+                },
+
+                updateMergeField: function(fieldName, propsJson) {
+                    if (!designer) return;
+                    var props = JSON.parse(propsJson);
+                    var template = designer.getTemplate();
+                    var changed = false;
+                    if (template.schemas) {
+                        template.schemas.forEach(function(page) {
+                            page.forEach(function(schema) {
+                                if (schema.name === fieldName && schema.backgroundColor === '#dbeafe') {
+                                    if (props.fontSize !== undefined) schema.fontSize = props.fontSize;
+                                    if (props.outputFontColor !== undefined) schema._outputFontColor = props.outputFontColor;
+                                    if (props.underline !== undefined) schema.underline = props.underline;
+                                    if (props.strikethrough !== undefined) schema.strikethrough = props.strikethrough;
+                                    changed = true;
+                                }
+                            });
+                        });
+                    }
+                    if (changed) {
+                        initDesigner(template);
+                    }
                 }
             };
 
